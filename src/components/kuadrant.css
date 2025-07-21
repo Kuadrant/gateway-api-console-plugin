@@ -1,0 +1,235 @@
+/* Prefixing your CSS classes with your plugin name is a best practice to avoid
+ * collisions with other plugin styles. */
+.console-plugin-template__nice {
+  /* Use PF global vars for colors to support dark mode in OpenShift 4.11.
+   * https://patternfly-react-main.surge.sh/developer-resources/global-css-variables */
+  color: var(--pf-v6-global--palette--blue-400);
+}
+
+.kuadrant-policy-topology .policy-node .pf-topology__node__background {
+  stroke-dasharray: 5, 5 !important;
+  stroke-width: 2 !important;
+  stroke: #06c;
+  animation: dash-animation 2s linear infinite !important;
+  fill: #bee1f4;
+  fill-opacity: 0.5;
+}
+
+.pf-theme-dark .kuadrant-policy-topology .policy-node .pf-topology__node__background,
+.pf-v6-theme-dark .kuadrant-policy-topology .policy-node .pf-topology__node__background {
+  fill: #1f4173;
+  fill-opacity: 0.5;
+  stroke: #73bcf7;
+  stroke-dasharray: 5, 5 !important;
+  stroke-width: 2 !important;
+  animation: dash-animation 2s linear infinite !important;
+}
+
+
+@keyframes dash-animation {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+/* dark theme text */
+.pf-v6-theme-dark .kuadrant-policy-topology svg text,
+.pf-theme-dark .kuadrant-policy-topology svg text,
+.pf-v6-theme-dark .kuadrant-policy-topology .pf-topology-container__graph text,
+.pf-theme-dark .kuadrant-policy-topology .pf-topology-container__graph text,
+.pf-v6-theme-dark .kuadrant-policy-topology .pf-topology-visualization-surface svg text,
+.pf-theme-dark .kuadrant-policy-topology .pf-topology-visualization-surface svg text {
+  fill: #fff !important;
+}
+
+/* light theme text */
+.pf-v6-theme-light .kuadrant-policy-topology svg text,
+.pf-theme-light .kuadrant-policy-topology svg text {
+  fill: #151515 !important;
+}
+
+.kuadrant-policy-topology svg text {
+  fill: #151515;
+}
+
+.pf-v6-theme-dark .kuadrant-policy-topology svg text {
+  fill: #fff !important;
+}
+
+/* badge text */
+.kuadrant-policy-topology .pf-topology__node__label__badge > text {
+  fill: #fff !important;
+}
+
+/* dark theme icons */
+.pf-v6-theme-dark .kuadrant-policy-topology .kuadrant-topology-node-icon,
+.pf-theme-dark .kuadrant-policy-topology .kuadrant-topology-node-icon {
+  color: #d2d2d2 !important;
+  fill: #d2d2d2 !important;
+}
+
+/* light theme icons */
+.pf-v6-theme-light .kuadrant-policy-topology .kuadrant-topology-node-icon,
+.pf-theme-light .kuadrant-policy-topology .kuadrant-topology-node-icon {
+  color: #6a6e73 !important;
+  fill: #6a6e73 !important;
+}
+
+/* group label styling */
+.kuadrant-policy-topology .pf-topology__group__label .pf-topology__node__label__background {
+  fill: #292929 !important;
+}
+
+.kuadrant-policy-topology g.pf-topology__group__label > text {
+  fill: #fff !important;
+}
+
+/* hover state */
+.kuadrant-policy-topology .pf-topology__group.pf-m-hover g.pf-topology__group__label > text {
+  fill: #fff !important;
+}
+
+/* additional specificity for group labels */
+.kuadrant-policy-topology .pf-topology-visualization-surface g.pf-topology__group__label > text {
+  fill: #fff !important;
+}
+
+.kuadrant-page-title {
+  padding: 1.5rem;
+}
+
+.kuadrant-alert-group {
+  padding-top: 1rem;
+}
+
+.co-m-nav-title--row .co-m-primary-action {
+  padding-top: 1rem;
+}
+
+.kuadrant-editor-toggle {
+  display: flex;
+  padding: var(--pf-v6-global--spacer--sm) 1.5rem var(--pf-v6-global--spacer--sm) 1.5rem;
+  border-bottom: var(--pf-v6-global--BorderWidth--sm) solid var(--pf-v6-global--BorderColor--100);
+  border-top: var(--pf-v6-global--BorderWidth--sm) solid var(--pf-v6-global--BorderColor--100);
+}
+
+.kuadrant-editor-toggle .pf-v6-c-radio {
+  padding: 0 0 0 1rem;
+}
+
+.kuadrant-modal-dynamic-height {
+  min-height: auto;
+  max-height: 450px;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.kuadrant-dashboard-learning,
+.kuadrant-dashboard-feature-highlights,
+.kuadrant-dashboard-enhance {
+  margin-bottom: 0.5em;
+}
+
+.kuadrant-overview-getting-started small {
+  color: var(--pf-v6-global--Color--200);
+}
+
+.kuadrant-dashboard-learning {
+  color: var(--pf-v6-global--palette--purple-700);
+}
+
+.pf-theme-dark .kuadrant-dashboard-learning {
+  color: var(--pf-v6-global--palette--purple-200);
+}
+
+.kuadrant-dashboard-feature-highlights {
+  color: var(--pf-v6-global--palette--blue-300);
+}
+
+.kuadrant-dashboard-enhance {
+  color: var(--pf-v6-global--palette--orange-400);
+}
+
+.kuadrant-dashboard-resource-link {
+  text-decoration: none;
+  color: var(--pf-v6-global--palette--black);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.kuadrant-dashboard-resource-link:hover {
+  text-decoration: underline;
+  color: var(--pf-v6-global--palette--blue-400);
+}
+
+.kuadrant-reading-time {
+  font-size: 0.8rem;
+  color: var(--pf-v6-global--palette--black-600);
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.kuadrant-limits-header {
+  margin: 1rem 0 0;
+}
+
+.kuadrant-limits-button,
+.pf-v6-c-label-group {
+  margin: 1rem;
+}
+
+.kuadrant-resource-create-container {
+  position: relative;
+}
+
+.kuadrant-resource-create-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.kuadrant-policy-list-body .co-m-pane__body {
+  padding: 0;
+}
+
+.kuadrant-pagination-left {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.kuadrant-policy-list-body {
+  width: 100%;
+}
+
+/* position card titles for absolute buttons */
+.kuadrant-overview-page .pf-v6-c-card__title {
+  position: relative;
+}
+
+.kuadrant-overview-create-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.kuadrant-overview-create-list,
+.kuadrant-overview-create-button {
+  font-family: RedHatText, helvetica, arial, sans-serif;
+}
+
+.custom-rounded-popover .pf-v6-c-popover__content {
+  border-radius: 12px;
+}
+
+.popover-codes {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* fix virtualized table cell alignment for kuadrant tables */
+.kuadrant-resource-list .ReactVirtualized__Table__rowColumn,
+.kuadrant-policy-list .ReactVirtualized__Table__rowColumn,
+.kuadrant-overview-page .ReactVirtualized__Table__rowColumn {
+  display: flex !important;
+  align-items: center !important;
+}

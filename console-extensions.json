@@ -1,0 +1,200 @@
+[
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": {
+        "group": "gateway.networking.k8s.io",
+        "version": "v1",
+        "kind": "HTTPRoute"
+      },
+      "page": {
+        "name": "Policies",
+        "href": "policies"
+      },
+      "component": { "$codeRef": "HTTPRoutePoliciesPage" }
+    }
+  },
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": {
+        "group": "gateway.networking.k8s.io",
+        "version": "v1",
+        "kind": "Gateway"
+      },
+      "page": {
+        "name": "Policies",
+        "href": "policies"
+      },
+      "component": { "$codeRef": "GatewayPoliciesPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/kuadrant/overview",
+      "component": { "$codeRef": "KuadrantOverviewPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "path": "/kuadrant/all-namespaces/policies",
+      "component": { "$codeRef": "KuadrantPoliciesPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "path": "/kuadrant/ns/:ns/policies",
+      "component": { "$codeRef": "KuadrantPoliciesPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/kuadrant/policy-topology",
+      "component": { "$codeRef": "PolicyTopologyPage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/k8s/ns/:ns/tlspolicy/name/:name/edit",
+      "component": { "$codeRef": "KuadrantTLSCreatePage" }
+    }
+  },
+  {
+    "type": "console.page/route",
+    "properties": {
+      "exact": true,
+      "path": "/k8s/ns/:ns/dnspolicy/name/:name/edit",
+      "component": { "$codeRef": "KuadrantDNSPolicyCreatePage" }
+    }
+  },
+  {
+    "type": "console.resource/create",
+    "properties": {
+      "model": {
+        "group": "kuadrant.io",
+        "version": "v1",
+        "kind": "DNSPolicy"
+      },
+      "component": { "$codeRef": "KuadrantDNSPolicyCreatePage" }
+    }
+  },
+  {
+    "type": "console.resource/create",
+    "properties": {
+      "model": {
+        "group": "kuadrant.io",
+        "version": "v1",
+        "kind": "RateLimitPolicy"
+      },
+      "component": { "$codeRef": "KuadrantRateLimitPolicyCreatePage" }
+    }
+  },
+  {
+    "type": "console.resource/create",
+    "properties": {
+      "model": {
+        "group": "kuadrant.io",
+        "version": "v1",
+        "kind": "TLSPolicy"
+      },
+      "component": { "$codeRef": "KuadrantTLSCreatePage" }
+    }
+  },
+  {
+    "type": "console.resource/create",
+    "properties": {
+      "model": {
+        "group": "kuadrant.io",
+        "version": "v1",
+        "kind": "AuthPolicy"
+      },
+      "component": { "$codeRef": "KuadrantAuthPolicyCreatePage" }
+    }
+  },
+  {
+    "type": "console.navigation/section",
+    "properties": {
+      "id": "kuadrant-section-admin",
+      "name": "%plugin__kuadrant-console-plugin~Kuadrant%",
+      "perspective": "admin"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "kuadrant-overview-admin",
+      "name": "%plugin__kuadrant-console-plugin~Overview%",
+      "href": "/kuadrant/overview",
+      "perspective": "admin",
+      "section": "kuadrant-section-admin"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "kuadrant-policies-admin",
+      "name": "%plugin__kuadrant-console-plugin~Policies%",
+      "href": "/kuadrant/all-namespaces/policies",
+      "perspective": "admin",
+      "section": "kuadrant-section-admin"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "kuadrant-policy-topology-admin",
+      "name": "%plugin__kuadrant-console-plugin~Policy Topology%",
+      "href": "/kuadrant/policy-topology",
+      "perspective": "admin",
+      "section": "kuadrant-section-admin",
+      "badge": "dev"
+    }
+  },
+  {
+    "type": "console.navigation/section",
+    "properties": {
+      "id": "kuadrant-section-dev",
+      "name": "%plugin__kuadrant-console-plugin~Kuadrant%",
+      "perspective": "dev"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "kuadrant-dashboard-dev",
+      "name": "%plugin__kuadrant-console-plugin~Overview%",
+      "href": "/kuadrant/overview",
+      "perspective": "dev",
+      "section": "kuadrant-section-dev"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "kuadrant-policies-dev",
+      "name": "%plugin__kuadrant-console-plugin~Policies%",
+      "href": "/kuadrant/all-namespaces/policies",
+      "perspective": "dev",
+      "section": "kuadrant-section-dev"
+    }
+  },
+  {
+    "type": "console.navigation/href",
+    "properties": {
+      "id": "kuadrant-policy-topology-dev",
+      "name": "%plugin__kuadrant-console-plugin~Policy Topology%",
+      "href": "/kuadrant/policy-topology",
+      "perspective": "dev",
+      "section": "kuadrant-section-dev",
+      "badge": "dev"
+    }
+  }
+]
