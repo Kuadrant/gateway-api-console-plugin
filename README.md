@@ -1,8 +1,8 @@
-# Kuadrant OpenShift/OKD Console Plugin
+# API Gateway OpenShift/OKD Console Plugin
 
 See below for setup requirements.
 
-Based on https://github.com/openshift/console-plugin-template
+Based on https://github.com/Kuadrant/api-gateway-console-plugin
 
 ## Screenshots
 

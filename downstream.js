@@ -9,7 +9,7 @@ const dryRun = args.includes('--dry-run');
 
 // Define file paths
 const constantsPath = path.join('src', 'constants', 'links.ts');
-const localesPath = path.join('locales', 'en', 'plugin__kuadrant-console-plugin.json');
+const localesPath = path.join('locales', 'en', 'api-gateway-console-plugin.json');
 const consoleExtensionsPath = path.join('console-extensions.json');
 const version = '1.1';
 
@@ -43,7 +43,7 @@ const replacements = {
     ],
   },
 
-  // Value-only replacements for plugin__kuadrant-console-plugin.json
+  // Value-only replacements for api-gateway-console-plugin.json
   [localesPath]: {
     type: 'value',
     replaceValue: 'Connectivity Link', // Replace "Kuadrant" with "Connectivity Link" in values only

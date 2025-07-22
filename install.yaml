@@ -1,77 +1,64 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kuadrant-console-plugin
-  namespace: kuadrant-system
+  name: api-gateway-console-plugin
+  namespace: openshift-console-plugin  # или другой namespace
   labels:
-    app: kuadrant-console-plugin
-    app.kubernetes.io/component: kuadrant-console-plugin
-    app.kubernetes.io/instance: kuadrant-console-plugin
-    app.kubernetes.io/name: kuadrant-console-plugin
-    app.kubernetes.io/part-of: kuadrant-console-plugin
-    app.openshift.io/runtime-namespace: kuadrant-system
+    app: api-gateway-console-plugin
+    app.kubernetes.io/component: api-gateway-console-plugin
+    app.kubernetes.io/instance: api-gateway-console-plugin
+    app.kubernetes.io/name: api-gateway-console-plugin
+    app.kubernetes.io/part-of: api-gateway-console-plugin
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kuadrant-console-plugin
+      app: api-gateway-console-plugin
   template:
     metadata:
       labels:
-        app: kuadrant-console-plugin
-        app.kubernetes.io/component: kuadrant-console-plugin
-        app.kubernetes.io/instance: kuadrant-console-plugin
-        app.kubernetes.io/name: kuadrant-console-plugin
-        app.kubernetes.io/part-of: kuadrant-console-plugin
+        app: api-gateway-console-plugin
+        app.kubernetes.io/component: api-gateway-console-plugin
+        app.kubernetes.io/instance: api-gateway-console-plugin
+        app.kubernetes.io/name: api-gateway-console-plugin
+        app.kubernetes.io/part-of: api-gateway-console-plugin
     spec:
       containers:
-      - name: kuadrant-console-plugin
-        image: quay.io/kuadrant/console-plugin:latest
-        ports:
-        - containerPort: 9443
-          protocol: TCP
-        imagePullPolicy: Always
-        env:
-          - name: TOPOLOGY_CONFIGMAP_NAME
-            value: topology
-          - name: TOPOLOGY_CONFIGMAP_NAMESPACE
-            value: kuadrant-system
-        volumeMounts:
-        - name: plugin-serving-cert
-          readOnly: true
-          mountPath: /var/serving-cert
-        - name: nginx-conf
-          readOnly: true
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
+        - name: api-gateway-console-plugin
+          image: quay.io/kuadrant/api-gateway-console-plugin:latest
+          ports:
+            - containerPort: 9443
+              protocol: TCP
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: plugin-serving-cert
+              readOnly: true
+              mountPath: /var/serving-cert
+            - name: nginx-conf
+              readOnly: true
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
       volumes:
-      - name: plugin-serving-cert
-        secret:
-          secretName: plugin-serving-cert
-          defaultMode: 420
-      - name: nginx-conf
-        configMap:
-          name: nginx-conf
-          defaultMode: 420
-      restartPolicy: Always
-      dnsPolicy: ClusterFirst
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: 25%
-      maxSurge: 25%
+        - name: plugin-serving-cert
+          secret:
+            secretName: plugin-serving-cert
+            defaultMode: 420
+        - name: nginx-conf
+          configMap:
+            name: nginx-conf
+            defaultMode: 420
 ---
-apiVersion: v1
+piVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-conf
-  namespace: kuadrant-system
+  namespace: openshift-console-plugin
   labels:
-    app: kuadrant-console-plugin
-    app.kubernetes.io/component: kuadrant-console-plugin
-    app.kubernetes.io/instance: kuadrant-console-plugin
-    app.kubernetes.io/name: kuadrant-console-plugin
-    app.kubernetes.io/part-of: kuadrant-console-plugin
+    app: api-gateway-console-plugin
+    app.kubernetes.io/component: api-gateway-console-plugin
+    app.kubernetes.io/instance: api-gateway-console-plugin
+    app.kubernetes.io/name: api-gateway-console-plugin
+    app.kubernetes.io/part-of: api-gateway-console-plugin
 data:
   nginx.conf: |
     error_log /dev/stdout;
@@ -88,15 +75,8 @@ data:
         ssl_certificate     /var/serving-cert/tls.crt;
         ssl_certificate_key /var/serving-cert/tls.key;
 
-        add_header oauth_token "$http_Authorization";
-
         location / {
           root                /usr/share/nginx/html;
-        }
-
-        # Serve config.js from /tmp
-        location /config.js {
-          root /tmp;
         }
       }
     }
@@ -106,37 +86,36 @@ kind: Service
 metadata:
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: plugin-serving-cert
-  name: kuadrant-console-plugin
-  namespace: kuadrant-system
+  name: api-gateway-console-plugin
+  namespace: openshift-console-plugin
   labels:
-    app: kuadrant-console-plugin
-    app.kubernetes.io/component: kuadrant-console-plugin
-    app.kubernetes.io/instance: kuadrant-console-plugin
-    app.kubernetes.io/name: kuadrant-console-plugin
-    app.kubernetes.io/part-of: kuadrant-console-plugin
+    app: api-gateway-console-plugin
+    app.kubernetes.io/component: api-gateway-console-plugin
+    app.kubernetes.io/instance: api-gateway-console-plugin
+    app.kubernetes.io/name: api-gateway-console-plugin
+    app.kubernetes.io/part-of: api-gateway-console-plugin
 spec:
   ports:
-  - name: 9443-tcp
-    protocol: TCP
-    port: 9443
-    targetPort: 9443
+    - name: 9443-tcp
+      protocol: TCP
+      port: 9443
+      targetPort: 9443
   selector:
-    app: kuadrant-console-plugin
+    app: api-gateway-console-plugin
   type: ClusterIP
-  sessionAffinity: None
 ---
 apiVersion: console.openshift.io/v1
 kind: ConsolePlugin
 metadata:
-  name: kuadrant-console-plugin
+  name: api-gateway-console-plugin
 spec:
-  displayName: 'Kuadrant Console Plugin'
+  displayName: 'API Gateway Console Plugin'
   i18n:
     loadType: Preload
   backend:
     type: Service
     service:
-      name: kuadrant-console-plugin
-      namespace: kuadrant-system
+      name: api-gateway-console-plugin
+      namespace: openshift-console-plugin
       port: 9443
       basePath: '/'

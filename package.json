@@ -1,12 +1,12 @@
 {
-  "name": "kuadrant-console-plugin",
+  "name": "api-gateway-console-plugin",
   "version": "0.2.0-dev",
-  "description": "Kuadrant OpenShift Console plugin",
+  "description": "API Gateway  OpenShift Console plugin",
   "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kuadrant/kuadrant-console-plugin.git"
+    "url": "https://github.com/Kuadrant/api-gateway-console-plugin.git"
   },
   "scripts": {
     "clean": "rm -rf dist",
@@ -62,24 +62,15 @@
     "webpack-dev-server": "^4.7.4"
   },
   "consolePlugin": {
-    "name": "kuadrant-console-plugin",
+    "name": "api-gateway-console-plugin",
     "version": "0.2.0-dev",
-    "displayName": "Kuadrant OpenShift Console Plugin",
-    "description": "Kuadrant OpenShift Console Plugin",
+    "displayName": " API Gateway Console Plugin",
+    "description": "API Gateway OpenShift Console Plugin",
     "latestSupportedOpenshiftVersion": "4.19",
     "i18n": {
       "loadType": "Preload"
     },
     "exposedModules": {
-      "KuadrantOverviewPage": "./components/KuadrantOverviewPage",
-      "PolicyTopologyPage": "./components/PolicyTopologyPage",
-      "KuadrantPoliciesPage": "./components/KuadrantPoliciesPage",
-      "KuadrantDNSPolicyCreatePage": "./components/KuadrantDNSPolicyCreatePage",
-      "KuadrantAuthPolicyCreatePage": "./components/KuadrantAuthPolicyCreatePage",
-      "KuadrantRateLimitPolicyCreatePage": "./components/KuadrantRateLimitPolicyCreatePage",
-      "KuadrantTLSCreatePage": "./components/KuadrantTLSCreatePage",
-      "HTTPRoutePoliciesPage": "./components/HTTPRoutePoliciesPage",
-      "GatewayPoliciesPage": "./components/GatewayPoliciesPage"
     },
     "dependencies": {
       "@console/pluginAPI": "*"
