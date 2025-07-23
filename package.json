@@ -1,12 +1,12 @@
 {
-  "name": "api-gateway-console-plugin",
+  "name": "gateway-api-console-plugin",
   "version": "0.2.0-dev",
-  "description": "API Gateway  OpenShift Console plugin",
+  "description": "Gateway API OpenShift Console plugin",
   "private": true,
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Kuadrant/api-gateway-console-plugin.git"
+    "url": "https://github.com/Kuadrant/gateway-api-console-plugin"
   },
   "scripts": {
     "clean": "rm -rf dist",
@@ -62,10 +62,10 @@
     "webpack-dev-server": "^4.7.4"
   },
   "consolePlugin": {
-    "name": "api-gateway-console-plugin",
+    "name": "gateway-api-console-plugin",
     "version": "0.2.0-dev",
-    "displayName": " API Gateway Console Plugin",
-    "description": "API Gateway OpenShift Console Plugin",
+    "displayName": " Gateway API Console Plugin",
+    "description": "Gateway API OpenShift Console Plugin",
     "latestSupportedOpenshiftVersion": "4.19",
     "i18n": {
       "loadType": "Preload"

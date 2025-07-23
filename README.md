@@ -1,10 +1,10 @@
-# API Gateway OpenShift/OKD Console Plugin
+# Gateway API OpenShift/OKD Console Plugin
 
 ## Description
 
 OpenShift plugin for managing Kubernetes Gateway API resources
 
-Based on https://github.com/Kuadrant/api-gateway-console-plugin
+
 
 ## Screenshots
 
