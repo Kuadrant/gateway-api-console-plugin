@@ -1,1 +1,17 @@
-[]
+[
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": {
+        "group": "gateway.networking.k8s.io",
+        "version": "v1",
+        "kind": "HTTPRoute"
+      },
+      "page": {
+        "name": "Gateway",
+        "href": "gateway"
+      },
+      "component": { "$codeRef": "HTTPRouteGatewaysTab" }
+    }
+  }
+]

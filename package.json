@@ -71,6 +71,7 @@
       "loadType": "Preload"
     },
     "exposedModules": {
+      "HTTPRouteGatewaysTab": "./components/HTTPRouteGatewaysTab"
     },
     "dependencies": {
       "@console/pluginAPI": "*"
