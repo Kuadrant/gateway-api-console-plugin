@@ -20,15 +20,11 @@ const replacements = {
     mappings: {
       // Direct string replacements for links.ts
       // Order matters: specific URLs first to prevent partial matches
-      'https://docs.kuadrant.io/latest/kuadrant-operator/doc/user-guides/secure-protect-connect-single-multi-cluster/':
-        `https://docs.redhat.com/en/documentation/red_hat_connectivity_link/${version}/html-single/configuring_and_deploying_gateway_policies_with_connectivity_link/index`,
-      'https://docs.kuadrant.io/latest/kuadrant-operator/doc/observability/examples/':
-        `https://docs.redhat.com/en/documentation/red_hat_connectivity_link/${version}/html-single/connectivity_link_observability_guide/index`,
-      'https://docs.kuadrant.io':
-        `https://docs.redhat.com/en/documentation/red_hat_connectivity_link/${version}/`,
-      'https://github.com/Kuadrant/kuadrant-operator/releases':
-        `https://docs.redhat.com/en/documentation/red_hat_connectivity_link/${version}/html-single/release_notes_for_connectivity_link_${version}/index`,
-      'Kuadrant': 'Connectivity Link',
+      'https://docs.kuadrant.io/latest/kuadrant-operator/doc/user-guides/secure-protect-connect-single-multi-cluster/': `https://docs.redhat.com/en/documentation/red_hat_connectivity_link/${version}/html-single/configuring_and_deploying_gateway_policies_with_connectivity_link/index`,
+      'https://docs.kuadrant.io/latest/kuadrant-operator/doc/observability/examples/': `https://docs.redhat.com/en/documentation/red_hat_connectivity_link/${version}/html-single/connectivity_link_observability_guide/index`,
+      'https://docs.kuadrant.io': `https://docs.redhat.com/en/documentation/red_hat_connectivity_link/${version}/`,
+      'https://github.com/Kuadrant/kuadrant-operator/releases': `https://docs.redhat.com/en/documentation/red_hat_connectivity_link/${version}/html-single/release_notes_for_connectivity_link_${version}/index`,
+      Kuadrant: 'Connectivity Link',
     },
   },
 
@@ -37,7 +33,7 @@ const replacements = {
     type: 'regex',
     patterns: [
       {
-        search: /%plugin__kuadrant-console-plugin~Kuadrant%/g,
+        search: /%plugin__gateway-api-console-plugin~Kuadrant%/g,
         replace: 'Connectivity Link',
       },
     ],
@@ -49,7 +45,6 @@ const replacements = {
     replaceValue: 'Connectivity Link', // Replace "Kuadrant" with "Connectivity Link" in values only
   },
 };
-
 
 function replaceSimpleStrings(filePath, mappings) {
   try {

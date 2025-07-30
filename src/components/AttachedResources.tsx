@@ -19,7 +19,7 @@ type AttachedResourcesProps = {
 };
 
 const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
-  const { t } = useTranslation('plugin__kuadrant-console-plugin');
+  const { t } = useTranslation('plugin__gateway-api-console-plugin');
 
   const associatedResources: { [key: string]: WatchK8sResource } = {
     HTTPRoute: {
@@ -120,22 +120,22 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
 
   const columns: TableColumn<K8sResourceKind>[] = [
     {
-      title: t('plugin__kuadrant-console-plugin~Name'),
+      title: t('plugin__gateway-api-console-plugin~Name'),
       id: 'name',
       sort: 'metadata.name',
     },
     {
-      title: t('plugin__kuadrant-console-plugin~Type'),
+      title: t('plugin__gateway-api-console-plugin~Type'),
       id: 'type',
       sort: 'kind',
     },
     {
-      title: t('plugin__kuadrant-console-plugin~Namespace'),
+      title: t('plugin__gateway-api-console-plugin~Namespace'),
       id: 'namespace',
       sort: 'metadata.namespace',
     },
     {
-      title: t('plugin__kuadrant-console-plugin~Status'),
+      title: t('plugin__gateway-api-console-plugin~Status'),
       id: 'status',
     },
   ];
