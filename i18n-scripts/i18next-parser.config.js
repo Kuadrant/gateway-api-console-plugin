@@ -9,7 +9,7 @@ module.exports = {
   locales: ['en'],
   namespaceSeparator: '~',
   reactNamespace: false,
-  defaultNamespace: 'plugin__kuadrant-console-plugin',
+  defaultNamespace: 'plugin__gateway-api-console-plugin',
   useKeysAsDefaultValue: true,
 
   // see below for more details
