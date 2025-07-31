@@ -1,50 +1,50 @@
 import * as React from 'react';
-import Helmet from 'react-helmet';
 import { useTranslation } from 'react-i18next';
-import { PageSection, Title } from '@patternfly/react-core';
 import { useLocation } from 'react-router-dom';
+import { PageSection, Title } from '@patternfly/react-core';
 import {
   useK8sWatchResources,
   K8sResourceCommon,
   useActiveNamespace,
 } from '@openshift-console/dynamic-plugin-sdk';
 
-import extractResourceNameFromURL from '../utils/nameFromPath';
-import AttachedResources from './AttachedResources';
+import extractResourceNameFromURL from '../../utils/nameFromPath';
+import { Helmet } from 'react-helmet';
+import AttachedResources from './AttachedGateways';
 
-const GatewayPoliciesPage: React.FC = () => {
+const HTTPRouteSingleOverview: React.FC = () => {
   const { t } = useTranslation('plugin__gateway-api-console-plugin');
   const [activeNamespace] = useActiveNamespace();
   const location = useLocation();
 
-  const routeName = extractResourceNameFromURL(location.pathname);
+  const httpRouteName = extractResourceNameFromURL(location.pathname);
   const resources = {
-    gateway: {
+    httpRoute: {
       groupVersionKind: {
         group: 'gateway.networking.k8s.io',
         version: 'v1',
-        kind: 'Gateway',
+        kind: 'HTTPRoute',
       },
       namespace: activeNamespace,
-      name: routeName,
+      name: httpRouteName,
       isList: false,
     },
   };
 
-  const watchedResources = useK8sWatchResources<{ gateway: K8sResourceCommon }>(resources);
-  const { loaded, loadError, data: httpRoute } = watchedResources.gateway;
+  const watchedResources = useK8sWatchResources<{ httpRoute: K8sResourceCommon }>(resources);
+  const { loaded, loadError, data: httpRoute } = watchedResources.httpRoute;
 
   return (
     <>
       <Helmet>
-        <title data-test="example-page-title">{t('Kuadrant Policies')}</title>
+        <title data-test="example-page-title">{t('Associated Gateways')}</title>
       </Helmet>
       <PageSection hasBodyWrapper={false}>
-        <Title headingLevel="h2">{t('Kuadrant Policies')}</Title>
+        <Title headingLevel="h2">{t('Associated Gateways')}</Title>
         {!loaded ? (
           <div>Loading...</div>
         ) : loadError ? (
-          <div>Error loading Gateway: {loadError.message}</div>
+          <div>Error loading HTTPRoute: {loadError.message}</div>
         ) : (
           <AttachedResources resource={httpRoute} />
         )}
@@ -52,5 +52,4 @@ const GatewayPoliciesPage: React.FC = () => {
     </>
   );
 };
-
-export default GatewayPoliciesPage;
+export default HTTPRouteSingleOverview;

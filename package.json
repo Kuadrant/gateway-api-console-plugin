@@ -71,7 +71,8 @@
       "loadType": "Preload"
     },
     "exposedModules": {
-      "GatewaySingleOverview": "./components/GatewaySingleOverview"
+      "GatewaySingleOverview": "./components/GatewaySingleOverview",
+      "HTTPRouteSingleOverview": "./components/HTTPRoute/HTTPRouteSingleOverview"
     },
     "dependencies": {
       "@console/pluginAPI": "*"
