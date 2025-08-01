@@ -72,7 +72,7 @@
     },
     "exposedModules": {
       "GatewaySingleOverview": "./components/GatewaySingleOverview",
-      "HTTPRouteSingleOverview": "./components/HTTPRoute/HTTPRouteSingleOverview"
+      "HTTPRouteSingleOverview": "./components/HTTPRouteSingleOverview"
     },
     "dependencies": {
       "@console/pluginAPI": "*"

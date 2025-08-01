@@ -8,9 +8,9 @@ import {
   useActiveNamespace,
 } from '@openshift-console/dynamic-plugin-sdk';
 
-import extractResourceNameFromURL from '../../utils/nameFromPath';
+import extractResourceNameFromURL from '../utils/nameFromPath';
 import { Helmet } from 'react-helmet';
-import AttachedResources from './AttachedGateways';
+import AttachedResources from './AttachedResources';
 
 const HTTPRouteSingleOverview: React.FC = () => {
   const { t } = useTranslation('plugin__gateway-api-console-plugin');
