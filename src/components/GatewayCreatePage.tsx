@@ -17,6 +17,7 @@ import {
   Wizard,
   WizardStep,
   NumberInput,
+  Radio
 } from '@patternfly/react-core';
 import {
   Table,
@@ -28,18 +29,25 @@ import {
 } from '@patternfly/react-table';
 import { HelpIcon, PlusCircleIcon, TrashIcon, EditIcon, AngleDownIcon, AngleRightIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
+import { ResourceYAMLEditor } from '@openshift-console/dynamic-plugin-sdk';
+import * as yaml from 'js-yaml';
 
 const GatewayCreatePage: React.FC = () => {
  const { t } = useTranslation('plugin__kuadrant-console-plugin');
+
+ const [createView, setCreateView] = React.useState<'form' | 'yaml'>('form');
+
  const create = true;
  const [gatewayName, setGatewayName] = React.useState('');
  const [gatewayClassName, setGatewayClassName] = React.useState('istio');
+ 
+ // YAML state management
+ const [yamlContent, setYamlContent] = React.useState('');
  
  const [isModalOpen, setIsModalOpen] = React.useState(false);
  const [listeners, setListeners] = React.useState<any[]>([]);
  const [editingListenerIndex, setEditingListenerIndex] = React.useState<number | null>(null);
  
- // Addresses state
  const [addresses, setAddresses] = React.useState<any[]>([]);
  const [isAddressesExpanded, setIsAddressesExpanded] = React.useState(false);
 
@@ -227,6 +235,165 @@ const GatewayCreatePage: React.FC = () => {
   const handleRemoveAddress = (id: number) => {
     setAddresses(addresses.filter(address => address.id !== id));
   };
+
+  // Helper function to build gateway object from form data
+  const buildGatewayFromForm = React.useCallback(() => {
+    const gateway = {
+      apiVersion: 'gateway.networking.k8s.io/v1',
+      kind: 'Gateway',
+      metadata: {
+        name: gatewayName,
+        namespace: 'default'
+      },
+      spec: {
+        gatewayClassName: gatewayClassName,
+        listeners: listeners.map(listener => {
+          const formattedListener: any = {
+            name: listener.name,
+            port: listener.port,
+            protocol: listener.protocol
+          };
+
+          if (listener.hostname) {
+            formattedListener.hostname = listener.hostname;
+          }
+
+          if (listener.protocol === 'HTTPS' || listener.protocol === 'TLS') {
+            formattedListener.tls = {
+              mode: listener.tlsMode
+            };
+
+            if (listener.certificateRefs.length > 0) {
+              formattedListener.tls.certificateRefs = listener.certificateRefs.map(ref => ({
+                name: ref.name,
+                namespace: ref.namespace || undefined,
+                kind: ref.kind
+              }));
+            }
+
+            if (listener.tlsOptions.length > 0) {
+              formattedListener.tls.options = listener.tlsOptions.reduce((acc, option) => {
+                acc[option.key] = option.value;
+                return acc;
+              }, {});
+            }
+          }
+
+          if (listener.allowedRoutes) {
+            formattedListener.allowedRoutes = {
+              namespaces: {
+                from: listener.allowedRoutes.namespaces.from
+              }
+            };
+
+            if (listener.allowedRoutes.kinds.length > 0) {
+              formattedListener.allowedRoutes.kinds = listener.allowedRoutes.kinds.map(kind => ({
+                kind: kind.kind,
+                group: kind.group
+              }));
+            }
+          }
+
+          return formattedListener;
+        })
+      }
+    };
+
+    if (addresses.length > 0) {
+      (gateway.spec as any).addresses = addresses.map(address => ({
+        type: address.type,
+        value: address.value
+      }));
+    }
+
+    return gateway;
+  }, [gatewayName, gatewayClassName, listeners, addresses]);
+
+  // Helper function to populate form from gateway object
+  const populateFormFromGateway = React.useCallback((gateway: any) => {
+    try {
+      if (gateway.metadata?.name) {
+        setGatewayName(gateway.metadata.name);
+      }
+      
+      if (gateway.spec?.gatewayClassName) {
+        setGatewayClassName(gateway.spec.gatewayClassName);
+      }
+
+      if (gateway.spec?.listeners) {
+        const formattedListeners = gateway.spec.listeners.map((listener: any, index: number) => ({
+          name: listener.name || '',
+          port: listener.port || 80,
+          protocol: listener.protocol || 'HTTP',
+          hostname: listener.hostname || '',
+          tlsMode: listener.tls?.mode || 'Terminate',
+          tlsOptions: listener.tls?.options ? Object.entries(listener.tls.options).map(([key, value], idx) => ({
+            id: Date.now() + idx,
+            key,
+            value
+          })) : [],
+          certificateRefs: listener.tls?.certificateRefs ? listener.tls.certificateRefs.map((ref: any, idx: number) => ({
+            id: Date.now() + idx + 1000,
+            name: ref.name || '',
+            namespace: ref.namespace || '',
+            kind: ref.kind || 'Secret'
+          })) : [],
+          allowedRoutes: {
+            namespaces: {
+              from: listener.allowedRoutes?.namespaces?.from || 'Same'
+            },
+            kinds: listener.allowedRoutes?.kinds ? listener.allowedRoutes.kinds.map((kind: any, idx: number) => ({
+              id: Date.now() + idx + 2000,
+              kind: kind.kind || 'HTTPRoute',
+              group: kind.group || 'gateway.networking.k8s.io'
+            })) : []
+          }
+        }));
+        setListeners(formattedListeners);
+      }
+
+      if (gateway.spec?.addresses) {
+        const formattedAddresses = gateway.spec.addresses.map((address: any, index: number) => ({
+          id: Date.now() + index + 3000,
+          type: address.type || 'IPAddress',
+          value: address.value || ''
+        }));
+        setAddresses(formattedAddresses);
+      }
+    } catch (error) {
+      console.error('Error populating form from gateway:', error);
+    }
+  }, []);
+
+  // Synchronize form data to YAML
+  React.useEffect(() => {
+    try {
+      const gatewayObject = buildGatewayFromForm();
+      const yamlString = yaml.dump(gatewayObject, { 
+        indent: 2,
+        lineWidth: -1,
+        noRefs: true,
+        sortKeys: false
+      });
+      setYamlContent(yamlString);
+    } catch (error) {
+      console.error('Error converting form data to YAML:', error);
+    }
+  }, [buildGatewayFromForm]);
+
+  // Handle YAML changes and sync to form
+  const handleYamlChange = React.useCallback((newYaml: string) => {
+    setYamlContent(newYaml);
+    try {
+      const parsedGateway = yaml.load(newYaml);
+      if (parsedGateway && typeof parsedGateway === 'object') {
+        populateFormFromGateway(parsedGateway);
+      }
+    } catch (error) {
+      // Don't update form if YAML is invalid - let user fix syntax first
+      console.warn('Invalid YAML syntax, not updating form:', error);
+    }
+  }, [populateFormFromGateway]);
 
   const wizardSteps = [
     {
@@ -625,6 +792,36 @@ const GatewayCreatePage: React.FC = () => {
           </p>
         </div>
         
+        {/* View Toggle */}
+              <FormGroup
+                role="radiogroup"
+                isInline
+                hasNoPaddingTop
+                style={{ display: 'inline-flex', gap: '16px'}}>
+              <Radio
+                id="form-view"
+                name="view-toggle"
+                label={
+                <div style={{marginRight: '12px'}}>
+                {t('Form View')}
+                </div>
+                }
+                isChecked={createView === 'form'}
+                onChange={() => setCreateView('form')}
+              />
+              <Radio
+                id="yaml-view"
+                name="view-toggle"
+                label={t('YAML View')}
+                isChecked={createView === 'yaml'}
+                onChange={() => setCreateView('yaml')}
+              />
+              </FormGroup>
+      </PageSection>
+        
+        {/* Conditional rendering based on current view */}
+        {createView === 'form' ? (
+        <PageSection hasBodyWrapper={false}>
         <Form className="co-m-pane__form">
           <FormGroup label={t('Gateway Name')} isRequired fieldId="gateway-name">
             <TextInput
@@ -826,8 +1023,15 @@ const GatewayCreatePage: React.FC = () => {
             )}
           </FormGroup>
         </Form>
-        
-      </PageSection>
+        </PageSection>
+        ) : (
+          <React.Suspense fallback={<div>{t('Loading YAML editor...')}</div>}>
+            <ResourceYAMLEditor
+              initialResource={yamlContent}
+              onChange={handleYamlChange}
+            />
+          </React.Suspense>
+        )}
 
       <Modal
         variant="large"
