@@ -29,28 +29,39 @@ import {
 } from '@patternfly/react-table';
 import { HelpIcon, PlusCircleIcon, TrashIcon, EditIcon, AngleDownIcon, AngleRightIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
-import { ResourceYAMLEditor } from '@openshift-console/dynamic-plugin-sdk';
+import { ResourceYAMLEditor, useActiveNamespace } from '@openshift-console/dynamic-plugin-sdk';
 import * as yaml from 'js-yaml';
+import GatewayCreateUpdate from './GatewayCreateUpdate';
+
 
 const GatewayCreatePage: React.FC = () => {
  const { t } = useTranslation('plugin__kuadrant-console-plugin');
-
  const [createView, setCreateView] = React.useState<'form' | 'yaml'>('form');
-
- const create = true;
+ const [selectedNamespace] = useActiveNamespace();
+ //const [create, setCreate] = React.useState(true);
+const create = true;
+ // Gateway settings
  const [gatewayName, setGatewayName] = React.useState('');
  const [gatewayClassName, setGatewayClassName] = React.useState('istio');
  
- // YAML state management
+ // YAML editor
  const [yamlContent, setYamlContent] = React.useState('');
+
+ //const location = useLocation();
+ //const pathSplit = location.pathname.split('/');
+ //const nameEdit = pathSplit[6];
+ //const namespaceEdit = pathSplit[3];
  
+ // Modal
  const [isModalOpen, setIsModalOpen] = React.useState(false);
  const [listeners, setListeners] = React.useState<any[]>([]);
  const [editingListenerIndex, setEditingListenerIndex] = React.useState<number | null>(null);
  
+ // Addresses settings
  const [addresses, setAddresses] = React.useState<any[]>([]);
  const [isAddressesExpanded, setIsAddressesExpanded] = React.useState(false);
 
+ // Prefilled data for listener fields (temporary data)
  const [currentListener, setCurrentListener] = React.useState({
    name: '',
    protocol: 'HTTP',
@@ -96,6 +107,13 @@ const GatewayCreatePage: React.FC = () => {
     });
   };
 
+  const gatewayModel = {
+    apiGroup: 'gateway.networking.k8s.io',
+    apiVersion: 'v1',
+    kind: 'Gateway',
+    plural: 'gateways'
+  }
+
   const handleListenerSave = () => {
     let newListeners;
     if (editingListenerIndex !== null) {
@@ -126,7 +144,7 @@ const GatewayCreatePage: React.FC = () => {
     const newRef = {
       id: Date.now(),
       name: '',
-      namespace: '',
+      namespace: selectedNamespace,
       kind: 'Secret'
     };
     setCurrentListener({
@@ -236,14 +254,14 @@ const GatewayCreatePage: React.FC = () => {
     setAddresses(addresses.filter(address => address.id !== id));
   };
 
-  // Helper function to build gateway object from form data
+  // When form completed, build gateway resource object from form data
   const buildGatewayFromForm = React.useCallback(() => {
     const gateway = {
       apiVersion: 'gateway.networking.k8s.io/v1',
       kind: 'Gateway',
       metadata: {
         name: gatewayName,
-        namespace: 'default'
+        namespace: selectedNamespace,
       },
       spec: {
         gatewayClassName: gatewayClassName,
@@ -309,7 +327,7 @@ const GatewayCreatePage: React.FC = () => {
     return gateway;
   }, [gatewayName, gatewayClassName, listeners, addresses]);
 
-  // Helper function to populate form from gateway object
+  // Populate form from gateway resource (yaml)
   const populateFormFromGateway = React.useCallback((gateway: any) => {
     try {
       if (gateway.metadata?.name) {
@@ -394,6 +412,33 @@ const GatewayCreatePage: React.FC = () => {
       console.warn('Invalid YAML syntax, not updating form:', error);
     }
   }, [populateFormFromGateway]);
+
+  const formValidation = () => {
+    let isFormValid = false;
+    
+    if (
+      gatewayName &&
+      gatewayName.trim() !== '' &&
+      gatewayClassName &&
+      gatewayClassName !== '' &&
+      listeners.length > 0 &&
+      listeners.every(listener => 
+        listener.name && 
+        listener.name.trim() !== '' &&
+        listener.port > 0 && 
+        listener.port <= 65535 &&
+        // For HTTPS/TLS listeners with Terminate mode, require certificates
+        (!(listener.protocol === 'HTTPS' || listener.protocol === 'TLS') ||
+         listener.tlsMode !== 'Terminate' ||
+         listener.certificateRefs.length > 0)
+      ) &&
+      // If addresses are provided, ensure they have values
+      addresses.every(address => address.value && address.value.trim() !== '')
+    ) {
+      isFormValid = true;
+    }
+    return isFormValid;
+  };
 
   const wizardSteps = [
     {
@@ -1029,6 +1074,7 @@ const GatewayCreatePage: React.FC = () => {
             <ResourceYAMLEditor
               initialResource={yamlContent}
               onChange={handleYamlChange}
+              create={create}
             />
           </React.Suspense>
         )}
@@ -1056,6 +1102,15 @@ const GatewayCreatePage: React.FC = () => {
           ))}
         </Wizard>
       </Modal>
+
+      {/* Create/Update Gateway */}
+      <GatewayCreateUpdate 
+        formValidation={formValidation()}
+        gatewayModel={gatewayModel}
+        gatewayResource={buildGatewayFromForm()}
+        ns={selectedNamespace}
+      />
+
     </>
   );
 };

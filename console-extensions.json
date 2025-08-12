@@ -1,12 +1,12 @@
 [
-  {
+ /* {
     "type": "console.page/route",
     "properties": {
       "exact": true,
       "path": "/k8s/ns/:ns/gateway/name/:name/edit",
       "component": { "$codeRef": "GatewayCreatePage" }
     }
-  },
+  },*/
   {
     "type": "console.resource/create",
     "properties": {
