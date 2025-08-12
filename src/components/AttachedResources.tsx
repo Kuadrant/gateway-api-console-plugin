@@ -25,7 +25,10 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
     HTTPRoute: {
       groupVersionKind: { group: 'gateway.networking.k8s.io', version: 'v1', kind: 'HTTPRoute' },
       isList: true,
-      // Search cluster-wide for HTTPRoutes that might reference this gateway
+    },
+    Gateway: {
+      groupVersionKind: { group: 'gateway.networking.k8s.io', version: 'v1', kind: 'Gateway' },
+      isList: true,
     },
   };
 
@@ -35,87 +38,64 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
 
   const resourceGroup = resource.apiVersion.includes('/') ? resource.apiVersion.split('/')[0] : '';
 
-  const attachedRoutes = React.useMemo(() => {
-    let routesArray: K8sResourceKind[] = [];
+  const attachedResources = React.useMemo(() => {
+    let results: K8sResourceKind[] = [];
 
-    // Process HTTPRoutes
-    const httpRoutes = watchedResources.HTTPRoute;
-    console.log('HTTPROUTES', httpRoutes);
+    const checkParentRef = (parentRef: any, targetResource: K8sResourceKind) => {
+      if (!parentRef) return false;
 
-    if (httpRoutes?.loaded && !httpRoutes.loadError && httpRoutes.data) {
-      console.log('ALL HTTP ROUTES:', httpRoutes.data);
-      const matchingRoutes = (httpRoutes.data as K8sResourceKind[]).filter((route) => {
-        console.log('CHECKING ROUTE:', route.metadata.name);
-        console.log('ROUTE STATUS:', route.status);
+      const refNamespace = parentRef.namespace ?? targetResource.metadata.namespace;
+      const refGroup = parentRef.group ?? 'gateway.networking.k8s.io';
+      const refKind = parentRef.kind ?? 'Gateway';
 
-        const statusParents = route.status?.parents ?? [];
-        console.log('STATUS PARENTS FOR ROUTE', route.metadata.name, ':', statusParents);
+      return (
+        parentRef.name === targetResource.metadata.name &&
+        refNamespace === targetResource.metadata.namespace &&
+        refGroup === resourceGroup &&
+        refKind === targetResource.kind
+      );
+    };
 
-        // Also check spec.parentRefs as fallback for debugging
-        const specParents = route.spec?.parentRefs ?? [];
-        console.log('SPEC PARENTS FOR ROUTE', route.metadata.name, ':', specParents);
+    if (resource.kind === 'Gateway') {
+      const httpRoutes = watchedResources.HTTPRoute;
+      if (httpRoutes?.loaded && !httpRoutes.loadError && httpRoutes.data) {
+        const matchingRoutes = httpRoutes.data.filter((route) => {
+          const statusParents = route.status?.parents ?? [];
+          const specParents = route.spec?.parentRefs ?? [];
 
-        console.log('LOOKING FOR GATEWAY:', {
-          name: resource.metadata.name,
-          namespace: resource.metadata.namespace,
-          kind: resource.kind,
-          group: resourceGroup,
+          const statusMatch = statusParents.some((parent: any) =>
+            checkParentRef(parent.parentRef, resource),
+          );
+          const specMatch = specParents.some((parentRef: any) =>
+            checkParentRef(parentRef, resource),
+          );
+
+          return statusMatch || specMatch;
         });
-
-        // Check both status.parents and spec.parentRefs for matches
-        const checkParentRef = (parentRef: any) => {
-          if (!parentRef) return false;
-
-          const refNamespace = parentRef.namespace ?? resource.metadata.namespace;
-          const refGroup = parentRef.group ?? 'gateway.networking.k8s.io';
-          const refKind = parentRef.kind ?? 'Gateway';
-
-          const matches =
-            parentRef.name === resource.metadata.name &&
-            refNamespace === resource.metadata.namespace &&
-            refGroup === resourceGroup &&
-            refKind === resource.kind;
-
-          console.log('MATCH CHECK:', {
-            parentRef,
-            expected: {
-              name: resource.metadata.name,
-              namespace: resource.metadata.namespace,
-              group: resourceGroup,
-              kind: resource.kind,
-            },
-            actual: {
-              name: parentRef.name,
-              namespace: refNamespace,
-              group: refGroup,
-              kind: refKind,
-            },
-            matches,
-          });
-
-          return matches;
-        };
-
-        // First check status.parents
-        const statusMatch = statusParents.some((parent: any) => {
-          console.log('CHECKING STATUS PARENT REF:', parent.parentRef);
-          return checkParentRef(parent.parentRef);
-        });
-
-        // Also check spec.parentRefs as fallback
-        const specMatch = specParents.some((parentRef: any) => {
-          console.log('CHECKING SPEC PARENT REF:', parentRef);
-          return checkParentRef(parentRef);
-        });
-
-        return statusMatch || specMatch;
-      });
-      console.log('MATCHING ROUTES:', matchingRoutes);
-
-      routesArray = routesArray.concat(matchingRoutes);
+        results = results.concat(matchingRoutes);
+      }
     }
 
-    return routesArray;
+    if (resource.kind === 'HTTPRoute') {
+      const gateways = watchedResources.Gateway;
+      if (gateways?.loaded && !gateways.loadError && gateways.data) {
+        const matchingGateways = gateways.data.filter((gateway) => {
+          const specParents = resource.spec?.parentRefs ?? [];
+
+          return specParents.some((parentRef: any) => {
+            return (
+              parentRef.name === gateway.metadata.name &&
+              (parentRef.namespace ?? resource.metadata.namespace) === gateway.metadata.namespace &&
+              (parentRef.group ?? 'gateway.networking.k8s.io') === resourceGroup &&
+              (parentRef.kind ?? 'Gateway') === gateway.kind
+            );
+          });
+        });
+        results = results.concat(matchingGateways);
+      }
+    }
+
+    return results;
   }, [watchedResources, resource, resourceGroup]);
 
   const columns: TableColumn<K8sResourceKind>[] = [
@@ -200,21 +180,21 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
           </Alert>
         </AlertGroup>
       )}
-      {attachedRoutes.length === 0 && allLoaded ? (
+      {attachedResources.length === 0 && allLoaded ? (
         <EmptyState
           titleText={
             <Title headingLevel="h4" size="lg">
-              {t('No attached routes found')}
+              {t('No attached resources found')}
             </Title>
           }
           icon={SearchIcon}
         >
-          <EmptyStateBody>{t('No route resources matched')}</EmptyStateBody>
+          <EmptyStateBody>{t('No matching resources found')}</EmptyStateBody>
         </EmptyState>
       ) : (
         <VirtualizedTable<K8sResourceKind>
-          data={attachedRoutes}
-          unfilteredData={attachedRoutes}
+          data={attachedResources}
+          unfilteredData={attachedResources}
           loaded={allLoaded}
           loadError={combinedLoadError}
           columns={columns}
