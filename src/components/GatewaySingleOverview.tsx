@@ -1,7 +1,5 @@
 import * as React from 'react';
-import Helmet from 'react-helmet';
-import { useTranslation } from 'react-i18next';
-import { PageSection, Title } from '@patternfly/react-core';
+import { PageSection } from '@patternfly/react-core';
 import { useLocation } from 'react-router-dom';
 import {
   useK8sWatchResources,
@@ -13,7 +11,6 @@ import extractResourceNameFromURL from '../utils/nameFromPath';
 import AttachedResources from './AttachedResources';
 
 const GatewayPoliciesPage: React.FC = () => {
-  const { t } = useTranslation('plugin__gateway-api-console-plugin');
   const [activeNamespace] = useActiveNamespace();
   const location = useLocation();
 
@@ -36,11 +33,7 @@ const GatewayPoliciesPage: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title data-test="example-page-title">{t('Kuadrant Policies')}</title>
-      </Helmet>
       <PageSection hasBodyWrapper={false}>
-        <Title headingLevel="h2">{t('Kuadrant Policies')}</Title>
         {!loaded ? (
           <div>Loading...</div>
         ) : loadError ? (

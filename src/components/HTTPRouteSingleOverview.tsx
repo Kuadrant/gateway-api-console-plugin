@@ -1,7 +1,6 @@
 import * as React from 'react';
-import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
-import { PageSection, Title } from '@patternfly/react-core';
+import { PageSection } from '@patternfly/react-core';
 import {
   useK8sWatchResources,
   K8sResourceCommon,
@@ -9,11 +8,9 @@ import {
 } from '@openshift-console/dynamic-plugin-sdk';
 
 import extractResourceNameFromURL from '../utils/nameFromPath';
-import { Helmet } from 'react-helmet';
 import AttachedResources from './AttachedResources';
 
 const HTTPRouteSingleOverview: React.FC = () => {
-  const { t } = useTranslation('plugin__gateway-api-console-plugin');
   const [activeNamespace] = useActiveNamespace();
   const location = useLocation();
 
@@ -36,11 +33,7 @@ const HTTPRouteSingleOverview: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title data-test="example-page-title">{t('Associated Gateways')}</title>
-      </Helmet>
       <PageSection hasBodyWrapper={false}>
-        <Title headingLevel="h2">{t('Associated Gateways')}</Title>
         {!loaded ? (
           <div>Loading...</div>
         ) : loadError ? (

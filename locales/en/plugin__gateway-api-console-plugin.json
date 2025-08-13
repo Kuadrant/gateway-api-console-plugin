@@ -1,6 +1,5 @@
 {
-  "Associated Gateways": "Associated Gateways",
-  "Kuadrant Policies": "Kuadrant Policies",
+  "Kind": "Kind",
   "Name": "Name",
   "Namespace": "Namespace",
   "No attached resources found": "No attached resources found",
@@ -15,5 +14,6 @@
   "The HTTPRoute is not accepted by any parent gateways.": "The HTTPRoute is not accepted by any parent gateways.",
   "The resource is being processed.": "The resource is being processed.",
   "The status of the resource is unknown.": "The status of the resource is unknown.",
-  "Type": "Type"
+  "This resource has no related items configured": "This resource has no related items configured",
+  "Try adjusting your search criteria": "Try adjusting your search criteria"
 }
