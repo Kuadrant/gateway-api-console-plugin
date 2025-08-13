@@ -61,16 +61,11 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
       if (httpRoutes?.loaded && !httpRoutes.loadError && httpRoutes.data) {
         const matchingRoutes = httpRoutes.data.filter((route) => {
           const statusParents = route.status?.parents ?? [];
-          const specParents = route.spec?.parentRefs ?? [];
 
-          const statusMatch = statusParents.some((parent: any) =>
-            checkParentRef(parent.parentRef, resource),
+          const statusMatch = statusParents.some(
+            (parent: any) => checkParentRef(parent.parentRef, resource),
           );
-          const specMatch = specParents.some((parentRef: any) =>
-            checkParentRef(parentRef, resource),
-          );
-
-          return statusMatch || specMatch;
+          return statusMatch;
         });
         results = results.concat(matchingRoutes);
       }
@@ -80,16 +75,11 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
       const gateways = watchedResources.Gateway;
       if (gateways?.loaded && !gateways.loadError && gateways.data) {
         const matchingGateways = gateways.data.filter((gateway) => {
-          const specParents = resource.spec?.parentRefs ?? [];
-
-          return specParents.some((parentRef: any) => {
-            return (
-              parentRef.name === gateway.metadata.name &&
-              (parentRef.namespace ?? resource.metadata.namespace) === gateway.metadata.namespace &&
-              (parentRef.group ?? 'gateway.networking.k8s.io') === resourceGroup &&
-              (parentRef.kind ?? 'Gateway') === gateway.kind
-            );
-          });
+          const statusParents = resource.status?.parents ?? [];
+          const statusMatch = statusParents.some(
+            (parent: any) => checkParentRef(parent.parentRef, gateway),
+          );
+          return statusMatch;
         });
         results = results.concat(matchingGateways);
       }
