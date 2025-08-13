@@ -1,10 +1,12 @@
 {
   "Associated Gateways": "Associated Gateways",
+  "Kind": "Kind",
   "Kuadrant Policies": "Kuadrant Policies",
   "Name": "Name",
   "Namespace": "Namespace",
   "No attached resources found": "No attached resources found",
   "No matching resources found": "No matching resources found",
+  "Search by {{filterValue}}...": "Search by {{filterValue}}...",
   "Some references for the HTTPRoute could not be resolved.": "Some references for the HTTPRoute could not be resolved.",
   "Status": "Status",
   "The Gateway configuration is accepted but not yet programmed.": "The Gateway configuration is accepted but not yet programmed.",
@@ -15,5 +17,6 @@
   "The HTTPRoute is not accepted by any parent gateways.": "The HTTPRoute is not accepted by any parent gateways.",
   "The resource is being processed.": "The resource is being processed.",
   "The status of the resource is unknown.": "The status of the resource is unknown.",
-  "Type": "Type"
+  "This resource has no related items configured": "This resource has no related items configured",
+  "Try adjusting your search criteria": "Try adjusting your search criteria"
 }
