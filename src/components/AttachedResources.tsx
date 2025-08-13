@@ -77,8 +77,8 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
         const matchingRoutes = httpRoutes.data.filter((route) => {
           const statusParents = route.status?.parents ?? [];
 
-          const statusMatch = statusParents.some(
-            (parent: any) => checkParentRef(parent.parentRef, resource),
+          const statusMatch = statusParents.some((parent: any) =>
+            checkParentRef(parent.parentRef, resource),
           );
           return statusMatch;
         });
@@ -91,8 +91,8 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
       if (gateways?.loaded && !gateways.loadError && gateways.data) {
         const matchingGateways = gateways.data.filter((gateway) => {
           const statusParents = resource.status?.parents ?? [];
-          const statusMatch = statusParents.some(
-            (parent: any) => checkParentRef(parent.parentRef, gateway),
+          const statusMatch = statusParents.some((parent: any) =>
+            checkParentRef(parent.parentRef, gateway),
           );
           return statusMatch;
         });
@@ -272,7 +272,5 @@ const AttachedResources: React.FC<AttachedResourcesProps> = ({ resource }) => {
     </div>
   );
 };
-
-
 
 export default AttachedResources;
