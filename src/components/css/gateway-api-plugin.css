@@ -1,0 +1,6 @@
+gateway-editor-toggle {
+    display: flex;
+    padding: var(--pf-v6-global--spacer--sm) 1.5rem var(--pf-v6-global--spacer--sm) 1.5rem;
+    border-bottom: var(--pf-v6-global--BorderWidth--sm) solid var(--pf-v6-global--BorderColor--100);
+    border-top: var(--pf-v6-global--BorderWidth--sm) solid var(--pf-v6-global--BorderColor--100);
+}

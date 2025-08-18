@@ -17,7 +17,8 @@ import {
   Wizard,
   WizardStep,
   NumberInput,
-  Radio
+  Radio,
+  Alert
 } from '@patternfly/react-core';
 import {
   Table,
@@ -34,6 +35,7 @@ import * as yaml from 'js-yaml';
 import GatewayCreateUpdate from './GatewayCreateUpdate';
 import { useLocation } from 'react-router';
 import { GatewayResource } from './gateway/Gateway';
+import './css/gateway-api-plugin.css';
 
 
 const GatewayCreatePage: React.FC = () => {
@@ -414,7 +416,6 @@ const GatewayCreatePage: React.FC = () => {
     }
   };
 
-  // Handle editing a gateway
   React.useEffect(() => {
     if (gatewayLoaded && !gatewayError) {
       if (!Array.isArray(gatewayData)) {
@@ -431,7 +432,6 @@ const GatewayCreatePage: React.FC = () => {
     }
   }, [gatewayData, gatewayLoaded, gatewayError]);
 
-  // Synchronize form data to YAML
   React.useEffect(() => {
     try {
       setYamlContent(gatewayObject);
@@ -466,9 +466,9 @@ const GatewayCreatePage: React.FC = () => {
       listeners.every(listener => 
         listener.name &&  
         listener.name.trim() !== '' &&
-        listener.port > 0 && 
+        listener.port > 0 &&
+        listener.certificateRefs.every(ref => ref.name !== '') &&
         listener.port <= 65535 &&
-        // For HTTPS/TLS listeners with Terminate mode, require certificates
         (!(listener.protocol === 'HTTPS' || listener.protocol === 'TLS') ||
          listener.tlsMode !== 'Terminate' ||
          listener.certificateRefs.length > 0)
@@ -601,6 +601,7 @@ const GatewayCreatePage: React.FC = () => {
               label={t('Certificate References')} 
               fieldId="listener-certificate-refs"
               style={{ marginLeft: '40px' }}
+              isRequired
             >
               {currentListener.certificateRefs.map((certRef, index) => (
                 <div key={certRef.id} style={{ marginBottom: '16px', padding: '16px', border: '1px solid #d2d2d2', borderRadius: '4px' }}>
@@ -610,6 +611,7 @@ const GatewayCreatePage: React.FC = () => {
                       variant="link" 
                       isDanger
                       onClick={() => handleRemoveCertificateRef(certRef.id)}
+                      isDisabled={currentListener.certificateRefs.length === 1}
                     >
                       {t('Remove')}
                     </Button>
@@ -671,7 +673,7 @@ const GatewayCreatePage: React.FC = () => {
 
           {(currentListener.protocol === 'HTTPS' || currentListener.protocol === 'TLS') && (
             <FormGroup 
-              label={t('TLS Options')} 
+              label={t('TLS Options')}
               fieldId="tls-options"
               style={{ marginLeft: '20px' }}
             >
@@ -879,30 +881,35 @@ const GatewayCreatePage: React.FC = () => {
         </div>
         
         {/* View Toggle */}
-              <FormGroup
-                role="radiogroup"
-                isInline
-                hasNoPaddingTop
-                style={{ display: 'inline-flex', gap: '16px'}}>
-              <Radio
-                id="form-view"
-                name="view-toggle"
-                label={
-                <div style={{marginRight: '12px'}}>
-                {t('Form View')}
-                </div>
-                }
-                isChecked={createView === 'form'}
-                onChange={() => setCreateView('form')}
-              />
-              <Radio
-                id="yaml-view"
-                name="view-toggle"
-                label={t('YAML View')}
-                isChecked={createView === 'yaml'}
-                onChange={() => setCreateView('yaml')}
-              />
-              </FormGroup>
+        <div style={{display: 'flex', alignItems: 'center', marginLeft: '16px'}}>
+        <FormGroup
+          className="gateway-editor-toggle"
+          role="radiogroup"
+          isInline
+          hasNoPaddingTop
+          fieldId="create-type-radio-group"
+          label="Create via:"
+        >
+          <Radio
+            name="create-type-radio"
+            label={
+              <div style={{marginRight: '12px'}}>
+              {t('Form View')}
+              </div>
+            }
+            id="create-type-radio-form"
+            isChecked={createView === 'form'}
+            onChange={() => setCreateView('form')}
+          />
+          <Radio
+            name="create-type-radio"
+            label="YAML"
+            id="create-type-radio-yaml"
+            isChecked={createView === 'yaml'}
+            onChange={() => setCreateView('yaml')}
+          />
+        </FormGroup>
+        </div>
       </PageSection>
         
         {/* Conditional rendering based on current view */}
@@ -953,18 +960,30 @@ const GatewayCreatePage: React.FC = () => {
           </FormGroup>
 
           <FormGroup label={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div>{t('Listeners')}</div>
-              <Popover
-                bodyContent={t('Listeners define how the Gateway accepts traffic. Each listener specifies a protocol, port, and hostname to match incoming requests.')}
-                aria-label={t('Listeners help')}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div>{t('Listeners')}</div>
+                <Popover
+                  bodyContent={t('Listeners define how the Gateway accepts traffic. Each listener specifies a protocol, port, and hostname to match incoming requests.')}
+                  aria-label={t('Listeners help')}
+                >
+                  <Button variant="plain" aria-label={t('Listeners help')}>
+                    <HelpIcon />
+                  </Button>
+                </Popover>
+              </div>
+              <Button
+                variant="secondary"
+                icon={<PlusCircleIcon />}
+                onClick={handleAddListener}
               >
-                <Button variant="plain" aria-label={t('Listeners help')}>
-                  <HelpIcon />
-                </Button>
-              </Popover>
+                {t('Add listener')}
+              </Button>
             </div>
           } fieldId="listeners">
+            {listeners.length === 0 && (
+              <Alert variant="warning" title={t('At least one listener is required to create a Gateway.')} />
+            )}
             {listeners.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
                 <Table aria-label={t('Listeners table')} variant="compact">
@@ -1013,13 +1032,6 @@ const GatewayCreatePage: React.FC = () => {
                 </Table>
               </div>
             )}
-            <Button
-              variant="secondary"
-              icon={<PlusCircleIcon />}
-              onClick={handleAddListener}
-            >
-              {t('Add listener')}
-            </Button>
           </FormGroup>
 
           <FormGroup label={
