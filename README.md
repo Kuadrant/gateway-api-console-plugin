@@ -165,16 +165,6 @@ Update `settings.json` (File > Preferences > Settings):
 "editor.formatOnSave": true
 ```
 
-## Version matrix
-
-| kuadrant-console-plugin version | PatternFly version | Openshift console version | Dynamic Plugin SDK |
-| ------------------------------- | ------------------ | ------------------------- | ------------------ |
-| v0.0.3 - v0.0.18                | 5                  | v4.17.x                   | v1.6.0             |
-| TBD                             | 5                  | v4.18.x                   | v1.8.0             |
-| TBD                             | 6                  | v4.19.x                   | TBD                |
-
-Openshift console is configured to share modules with its dynamic plugins (console plugins). For more information on versions and changes to the shared modules, please see the shared modules [documentation](https://www.npmjs.com/package/@openshift-console/dynamic-plugin-sdk?activeTab=readme)
-
 ## References
 
 - [Console Plugin SDK README](https://github.com/openshift/console/tree/master/frontend/packages/console-dynamic-plugin-sdk)
