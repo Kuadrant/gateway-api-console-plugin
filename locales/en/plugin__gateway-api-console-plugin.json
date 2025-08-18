@@ -4,6 +4,7 @@
   "Namespace": "Namespace",
   "No attached resources found": "No attached resources found",
   "No matching resources found": "No matching resources found",
+  "Search by {{filterValue}}...": "Search by {{filterValue}}...",
   "Some references for the HTTPRoute could not be resolved.": "Some references for the HTTPRoute could not be resolved.",
   "Status": "Status",
   "The Gateway configuration is accepted but not yet programmed.": "The Gateway configuration is accepted but not yet programmed.",
