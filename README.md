@@ -4,11 +4,10 @@
 
 OpenShift plugin for managing Kubernetes Gateway API resources
 
-
-
 ## Screenshots
 
 ![Overview](docs/images/overview.gif)
+
 ## Running
 
 - Target a running OCP with `oc login`
@@ -110,13 +109,13 @@ with this namespace as follows:
 
 ```tsx
 conster Header: React.FC = () => {
-  const { t } = useTranslation('plugin__kuadrant-console-plugin');
+  const { t } = useTranslation('plugin__gateway-api-console-plugin');
   return <h1>{t('Hello, World!')}</h1>;
 };
 ```
 
 For labels in `console-extensions.json`, you can use the format
-`%plugin__kuadrant-console-plugin~My Label%`. Console will replace the value with
+`%plugin__gateway-api-console-plugin~My Label%`. Console will replace the value with
 the message for the current language from the `plugin__kuadrant-console`
 namespace. For example:
 
@@ -126,7 +125,7 @@ namespace. For example:
   "properties": {
     "id": "admin-demo-section",
     "perspective": "admin",
-    "name": "%plugin__kuadrant-console-plugin~Plugin Template%"
+    "name": "%plugin__gateway-api-console-plugin~Plugin Template%"
   }
 }
 ```
@@ -165,17 +164,6 @@ Update `settings.json` (File > Preferences > Settings):
 ```json
 "editor.formatOnSave": true
 ```
-## Version matrix
-
-| kuadrant-console-plugin version | PatternFly version | Openshift console version | Dynamic Plugin SDK |
-|---------------------------------|--------------------|---------------------------|--------------------|
-|         v0.0.3 - v0.0.18        |          5         |          v4.17.x          |       v1.6.0       |
-|                TBD              |          5         |          v4.18.x          |       v1.8.0       |
-|                TBD              |          6         |          v4.19.x          |         TBD        |
-
-Openshift console is configured to share modules with its dynamic plugins (console plugins). For more information on versions and changes to the shared modules, please see the shared modules [documentation](https://www.npmjs.com/package/@openshift-console/dynamic-plugin-sdk?activeTab=readme)
-
-
 
 ## References
 

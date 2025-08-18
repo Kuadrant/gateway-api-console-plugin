@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": {
+        "group": "gateway.networking.k8s.io",
+        "version": "v1",
+        "kind": "Gateway"
+      },
+      "page": {
+        "name": "Attached",
+        "href": "attached"
+      },
+      "component": { "$codeRef": "GatewaySingleOverview" }
+    }
+  },
+  {
+    "type": "console.tab/horizontalNav",
+    "properties": {
+      "model": {
+        "group": "gateway.networking.k8s.io",
+        "version": "v1",
+        "kind": "HTTPRoute"
+      },
+      "page": {
+        "name": "Attached",
+        "href": "attached"
+      },
+      "component": { "$codeRef": "HTTPRouteSingleOverview" }
+    }
+  }
+]
