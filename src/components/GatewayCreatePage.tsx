@@ -29,28 +29,31 @@ import {
 } from '@patternfly/react-table';
 import { HelpIcon, PlusCircleIcon, TrashIcon, EditIcon, AngleDownIcon, AngleRightIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
-import { ResourceYAMLEditor, useActiveNamespace } from '@openshift-console/dynamic-plugin-sdk';
+import { ResourceYAMLEditor, useActiveNamespace, useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
 import * as yaml from 'js-yaml';
 import GatewayCreateUpdate from './GatewayCreateUpdate';
+import { useLocation } from 'react-router';
+import { GatewayResource } from './gateway/Gateway';
 
 
 const GatewayCreatePage: React.FC = () => {
  const { t } = useTranslation('plugin__kuadrant-console-plugin');
  const [createView, setCreateView] = React.useState<'form' | 'yaml'>('form');
  const [selectedNamespace] = useActiveNamespace();
- //const [create, setCreate] = React.useState(true);
-const create = true;
+ const [create, setCreate] = React.useState(true);
+ const [originalMetadata, setOriginalMetadata] = React.useState<any>(null);
+
  // Gateway settings
  const [gatewayName, setGatewayName] = React.useState('');
  const [gatewayClassName, setGatewayClassName] = React.useState('istio');
  
  // YAML editor
- const [yamlContent, setYamlContent] = React.useState('');
+ const [yamlContent, setYamlContent] = React.useState<any>(null);
 
- //const location = useLocation();
- //const pathSplit = location.pathname.split('/');
- //const nameEdit = pathSplit[6];
- //const namespaceEdit = pathSplit[3];
+ const location = useLocation();
+ const pathSplit = location.pathname.split('/');
+ const nameEdit = pathSplit[5];
+ const namespaceEdit = pathSplit[3];
  
  // Modal
  const [isModalOpen, setIsModalOpen] = React.useState(false);
@@ -77,6 +80,24 @@ const create = true;
      kinds: []
    }
  });
+
+ let gatewayResource = null;
+ if (nameEdit) {
+  gatewayResource = {
+    groupVersionKind: {
+      group: 'gateway.networking.k8s.io',
+      version: 'v1',
+      kind: 'Gateway'
+    },
+    name: nameEdit,
+    namespace: namespaceEdit,
+    isList: false
+  }
+ }
+
+ const [gatewayData, gatewayLoaded, gatewayError] = gatewayResource
+ ? useK8sWatchResource(gatewayResource)
+ : [null, false, null];
 
   const handleGatewayClassChange = (event: React.FormEvent<HTMLSelectElement>) => {
     setGatewayClassName(event.currentTarget.value);
@@ -117,11 +138,9 @@ const create = true;
   const handleListenerSave = () => {
     let newListeners;
     if (editingListenerIndex !== null) {
-      // Editing existing listener
       newListeners = [...listeners];
       newListeners[editingListenerIndex] = { ...currentListener };
     } else {
-      // Adding new listener
       newListeners = [...listeners, { ...currentListener }];
     }
     setListeners(newListeners);
@@ -135,7 +154,18 @@ const create = true;
   };
 
   const handleEditListener = (index: number) => {
-    setCurrentListener({ ...listeners[index] });
+    const listener = listeners[index];
+    setCurrentListener({ 
+      ...listener,
+      certificateRefs: listener.certificateRefs || [],
+      tlsOptions: listener.tlsOptions || [],
+      allowedRoutes: {
+        namespaces: {
+          from: listener.allowedRoutes?.namespaces?.from || 'Same'
+        },
+        kinds: listener.allowedRoutes?.kinds || []
+      }
+    });
     setEditingListenerIndex(index);
     setIsModalOpen(true);
   };
@@ -255,11 +285,13 @@ const create = true;
   };
 
   // When form completed, build gateway resource object from form data
-  const buildGatewayFromForm = React.useCallback(() => {
+  const gatewayObject = React.useMemo(() => {
     const gateway = {
       apiVersion: 'gateway.networking.k8s.io/v1',
       kind: 'Gateway',
-      metadata: {
+      metadata: originalMetadata ? {
+        ...originalMetadata
+      } : {
         name: gatewayName,
         namespace: selectedNamespace,
       },
@@ -281,7 +313,7 @@ const create = true;
               mode: listener.tlsMode
             };
 
-            if (listener.certificateRefs.length > 0) {
+            if (listener.certificateRefs && listener.certificateRefs.length > 0) {
               formattedListener.tls.certificateRefs = listener.certificateRefs.map(ref => ({
                 name: ref.name,
                 namespace: ref.namespace || undefined,
@@ -289,7 +321,7 @@ const create = true;
               }));
             }
 
-            if (listener.tlsOptions.length > 0) {
+            if (listener.tlsOptions && listener.tlsOptions.length > 0) {
               formattedListener.tls.options = listener.tlsOptions.reduce((acc, option) => {
                 acc[option.key] = option.value;
                 return acc;
@@ -304,7 +336,7 @@ const create = true;
               }
             };
 
-            if (listener.allowedRoutes.kinds.length > 0) {
+            if (listener.allowedRoutes.kinds && listener.allowedRoutes.kinds.length > 0) {
               formattedListener.allowedRoutes.kinds = listener.allowedRoutes.kinds.map(kind => ({
                 kind: kind.kind,
                 group: kind.group
@@ -325,10 +357,9 @@ const create = true;
     }
 
     return gateway;
-  }, [gatewayName, gatewayClassName, listeners, addresses]);
+  }, [gatewayName, gatewayClassName, listeners, addresses, selectedNamespace, originalMetadata]);
 
-  // Populate form from gateway resource (yaml)
-  const populateFormFromGateway = React.useCallback((gateway: any) => {
+  const populateFormFromGateway = (gateway: any) => {
     try {
       if (gateway.metadata?.name) {
         setGatewayName(gateway.metadata.name);
@@ -381,37 +412,46 @@ const create = true;
     } catch (error) {
       console.error('Error populating form from gateway:', error);
     }
-  }, []);
+  };
+
+  // Handle editing a gateway
+  React.useEffect(() => {
+    if (gatewayLoaded && !gatewayError) {
+      if (!Array.isArray(gatewayData)) {
+        const gatewayUpdate = gatewayData as GatewayResource;
+        console.log('gatewayUpdate', gatewayUpdate);
+        setCreate(false);
+        setOriginalMetadata(gatewayUpdate.metadata);
+        populateFormFromGateway(gatewayUpdate);
+        setYamlContent(gatewayUpdate);
+      }
+    }
+    else if (gatewayError) {
+      console.error('Failed to fetch the resource:', gatewayError);
+    }
+  }, [gatewayData, gatewayLoaded, gatewayError]);
 
   // Synchronize form data to YAML
   React.useEffect(() => {
     try {
-      const gatewayObject = buildGatewayFromForm();
-      const yamlString = yaml.dump(gatewayObject, { 
-        indent: 2,
-        lineWidth: -1,
-        noRefs: true,
-        sortKeys: false
-      });
-      setYamlContent(yamlString);
+      setYamlContent(gatewayObject);
     } catch (error) {
       console.error('Error converting form data to YAML:', error);
     }
-  }, [buildGatewayFromForm]);
+  }, [gatewayObject]);
 
   // Handle YAML changes and sync to form
-  const handleYamlChange = React.useCallback((newYaml: string) => {
-    setYamlContent(newYaml);
+  const handleYamlChange = (yamlInput: string) => {
+    setYamlContent(yamlInput);
     try {
-      const parsedGateway = yaml.load(newYaml);
+      const parsedGateway = yaml.load(yamlInput);
       if (parsedGateway && typeof parsedGateway === 'object') {
         populateFormFromGateway(parsedGateway);
       }
     } catch (error) {
-      // Don't update form if YAML is invalid - let user fix syntax first
       console.warn('Invalid YAML syntax, not updating form:', error);
     }
-  }, [populateFormFromGateway]);
+  };
 
   const formValidation = () => {
     let isFormValid = false;
@@ -421,9 +461,10 @@ const create = true;
       gatewayName.trim() !== '' &&
       gatewayClassName &&
       gatewayClassName !== '' &&
+      listeners && 
       listeners.length > 0 &&
       listeners.every(listener => 
-        listener.name && 
+        listener.name &&  
         listener.name.trim() !== '' &&
         listener.port > 0 && 
         listener.port <= 65535 &&
@@ -432,8 +473,8 @@ const create = true;
          listener.tlsMode !== 'Terminate' ||
          listener.certificateRefs.length > 0)
       ) &&
-      // If addresses are provided, ensure they have values
-      addresses.every(address => address.value && address.value.trim() !== '')
+      (!addresses || addresses.length === 0 || 
+       addresses.every(address => address.value && address.value.trim() !== ''))
     ) {
       isFormValid = true;
     }
@@ -876,27 +917,36 @@ const create = true;
               value={gatewayName}
               onChange={(_event, value) => setGatewayName(value)}
               isRequired
+              isDisabled={!create}  // Disable during edit as names are immutable
               placeholder={t('Enter gateway name')}
             />
             <FormHelperText>
               <HelperText>
                 <HelperTextItem>
-                  {t('A unique name for the gateway within the namespace.')}
+                  {!create 
+                    ? t('Gateway names cannot be changed after creation.') 
+                    : t('A unique name for the gateway within the namespace.')}
                 </HelperTextItem>
               </HelperText>
             </FormHelperText>
           </FormGroup>
 
-          <FormGroup label={t('Gateway Class Name')} isRequired fieldId="gateway-name">
-            <FormSelect value={gatewayClassName} onChange={handleGatewayClassChange} aria-label={t('Select Gateway Class')}>
-              <FormSelectOption value="" label={t('Select Gateway Class')} />
+          <FormGroup label={t('Gateway Class Name')} isRequired fieldId="gateway-class-name">
+            <FormSelect 
+              value={gatewayClassName} 
+              onChange={handleGatewayClassChange} 
+              aria-label={t('Select Gateway Class')}
+              isDisabled={!create}  // Disable during edit as gateway class shouldn't be changed
+            >
               <FormSelectOption value="istio" label={t('Istio')} />
               <FormSelectOption value="envoy-gateway" label={t('Envoy Gateway')} />
             </FormSelect>
             <FormHelperText>
               <HelperText>
                 <HelperTextItem>
-                  {t('The gateway class name must be unique within the namespace and conform to DNS-1123 label standards (lowercase alphanumeric characters or "-").')}
+                  {!create 
+                    ? t('Gateway class cannot be changed after creation.') 
+                    : t('The gateway class name must be unique within the namespace and conform to DNS-1123 label standards (lowercase alphanumeric characters or "-").')}
                 </HelperTextItem>
               </HelperText>
             </FormHelperText>
@@ -1104,10 +1154,11 @@ const create = true;
       </Modal>
 
       {/* Create/Update Gateway */}
-      <GatewayCreateUpdate 
+      <GatewayCreateUpdate
+        view={createView}
         formValidation={formValidation()}
         gatewayModel={gatewayModel}
-        gatewayResource={buildGatewayFromForm()}
+        gatewayResource={gatewayObject}
         ns={selectedNamespace}
       />
 
