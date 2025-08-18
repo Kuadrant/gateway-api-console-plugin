@@ -73,7 +73,8 @@
     "exposedModules": {
       "GatewaySingleOverview": "./components/GatewaySingleOverview",
       "HTTPRouteSingleOverview": "./components/HTTPRouteSingleOverview",
-      "GatewayCreatePage": "./components/GatewayCreatePage"
+      "GatewayCreatePage": "./components/GatewayCreatePage",
+      "HTTPRouteCreatePage": "./components/HTTPRouteCreatePage"
     },
     "dependencies": {
       "@console/pluginAPI": "*"
