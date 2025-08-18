@@ -19,6 +19,17 @@
     }
   },
   {
+    "type": "console.resource/create",
+    "properties": {
+      "model": {
+        "group": "gateway.networking.k8s.io",
+        "version": "v1",
+        "kind": "HTTPRoute"
+      },
+      "component": { "$codeRef": "HTTPRouteCreatePage" }
+    }
+  },
+  {
     "type": "console.tab/horizontalNav",
     "properties": {
       "model": {
