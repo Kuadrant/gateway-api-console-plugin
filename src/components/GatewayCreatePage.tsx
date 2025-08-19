@@ -16,7 +16,6 @@ import {
   Modal,
   Wizard,
   WizardStep,
-  NumberInput,
   Radio,
   Alert
 } from '@patternfly/react-core';
@@ -142,6 +141,10 @@ const GatewayCreatePage: React.FC = () => {
     if (editingListenerIndex !== null) {
       newListeners = [...listeners];
       newListeners[editingListenerIndex] = { ...currentListener };
+      if (newListeners[editingListenerIndex].tlsMode === 'Passthrough') {
+        newListeners[editingListenerIndex].tlsOptions = [];
+        newListeners[editingListenerIndex].certificateRefs = [];
+      }
     } else {
       newListeners = [...listeners, { ...currentListener }];
     }
@@ -506,16 +509,12 @@ const GatewayCreatePage: React.FC = () => {
           </FormGroup>
 
           <FormGroup label={t('Port')} isRequired fieldId="listener-port">
-            <NumberInput
+            <TextInput
+              type="number"
               value={currentListener.port}
-              onMinus={() => setCurrentListener({...currentListener, port: Math.max(1, currentListener.port - 1)})}
-              onPlus={() => setCurrentListener({...currentListener, port: Math.min(65535, currentListener.port + 1)})}
-              onChange={(event) => {
-                const value = parseInt((event.target as HTMLInputElement).value) || 80;
-                setCurrentListener({...currentListener, port: Math.max(1, Math.min(65535, value))});
-              }}
-              min={1}
-              max={65535}
+              onChange={(_event, value) => setCurrentListener({...currentListener, port: parseInt(value, 10)})}
+              placeholder={t('Enter port (1-65535)')}
+              isRequired
             />
             <FormHelperText>
               <HelperText>
@@ -596,7 +595,7 @@ const GatewayCreatePage: React.FC = () => {
             </FormGroup>
           )}
 
-          {(currentListener.protocol === 'HTTPS' || currentListener.protocol === 'TLS') && currentListener.tlsMode && (
+          {(currentListener.protocol === 'HTTPS' || currentListener.protocol === 'TLS') && currentListener.tlsMode === 'Terminate' && (
             <FormGroup 
               label={t('Certificate References')} 
               fieldId="listener-certificate-refs"
@@ -671,7 +670,7 @@ const GatewayCreatePage: React.FC = () => {
             </FormGroup>
           )}
 
-          {(currentListener.protocol === 'HTTPS' || currentListener.protocol === 'TLS') && (
+          {(currentListener.protocol === 'HTTPS' || currentListener.protocol === 'TLS') && currentListener.tlsMode === 'Terminate' && (
             <FormGroup 
               label={t('TLS Options')}
               fieldId="tls-options"
