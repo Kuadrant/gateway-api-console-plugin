@@ -71,7 +71,7 @@ const HTTPRouteCreatePage: React.FC = () => {
   const [createView, setCreateView] = React.useState<'form' | 'yaml'>('form');
   const [routeName, setRouteName] = React.useState('');
   const [hostnames, setHostnames] = React.useState<string[]>([]);
-  const [selectedNamespace] = useActiveNamespace();
+  const [selectedNamespaceRaw] = useActiveNamespace();
   const [parentRefs, setParentRefs] = React.useState<ParentReference[]>([]);
 
   // Metadata for determining edit/create mode
@@ -86,7 +86,8 @@ const HTTPRouteCreatePage: React.FC = () => {
   const nameEdit = pathSplit[6];
   const namespaceEdit = pathSplit[3];
   const [formDisabled, setFormDisabled] = React.useState(false);
-
+  const selectedNamespace =
+    !selectedNamespaceRaw || selectedNamespaceRaw === '#ALL_NS#' ? 'default' : selectedNamespaceRaw;
   // Function to add a new hostname field
   const addHostnameField = () => {
     setHostnames([...hostnames, '']);
@@ -115,7 +116,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       kind: 'HTTPRoute',
       metadata: {
         name: routeName,
-        namespace: selectedNamespace || 'default',
+        namespace: selectedNamespace,
         // Add metadata only when editing
         ...(creationTimestamp ? { creationTimestamp } : {}),
         ...(resourceVersion ? { resourceVersion } : {}),
