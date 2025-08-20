@@ -25,14 +25,15 @@ import {
   useActiveNamespace,
 } from '@openshift-console/dynamic-plugin-sdk';
 import { useHistory, useLocation } from 'react-router-dom';
-import GatewaySelect from '../utils/GatewaySelect';
+// import GatewaySelect from '../utils/GatewaySelect';
 import yaml from 'js-yaml';
 import HTTPRouteCreateUpdate from './HTTPRouteCreateUpdate';
+import ParentReferencesSelect from '../utils/ParentReferencesSelect';
 
-interface Gateway {
-  name: string;
-  namespace: string;
-}
+// interface Gateway {
+//   name: string;
+//   namespace: string;
+// }
 
 interface HTTPRouteEdit extends K8sResourceCommon {
   spec?: {
@@ -56,16 +57,22 @@ interface HTTPRouteEdit extends K8sResourceCommon {
   };
 }
 
+interface ParentReference {
+  id: string;
+  gatewayName: string;
+  gatewayNamespace: string;
+  sectionName: string;
+  port: number;
+  isExpanded?: boolean;
+}
+
 const HTTPRouteCreatePage: React.FC = () => {
   const { t } = useTranslation('plugin__gateway-api-console-plugin');
   const [createView, setCreateView] = React.useState<'form' | 'yaml'>('form');
   const [routeName, setRouteName] = React.useState('');
-  const [hostnames, setHostnames] = React.useState<string[]>(['']);
+  const [hostnames, setHostnames] = React.useState<string[]>([]);
   const [selectedNamespace] = useActiveNamespace();
-  const [selectedGateway, setSelectedGateway] = React.useState<Gateway>({
-    name: '',
-    namespace: '',
-  });
+  const [parentRefs, setParentRefs] = React.useState<ParentReference[]>([]);
 
   // Metadata for determining edit/create mode
   const [creationTimestamp, setCreationTimestamp] = React.useState('');
@@ -88,7 +95,7 @@ const HTTPRouteCreatePage: React.FC = () => {
   //Function to remove a hostname field
   const removeHostnameField = (index: number) => {
     const newHostnames = hostnames.filter((_, i) => i !== index);
-    setHostnames(newHostnames.length ? newHostnames : ['']);
+    setHostnames(newHostnames);
   };
 
   // Function to update a hostname value
@@ -101,6 +108,7 @@ const HTTPRouteCreatePage: React.FC = () => {
   const createHTTPRoute = () => {
     // Filter out empty hostnames
     const validHostnames = hostnames.filter((h) => h.trim().length > 0);
+    const validParentRefs = parentRefs.filter((ref) => ref.gatewayName && ref.sectionName);
 
     return {
       apiVersion: 'gateway.networking.k8s.io/v1',
@@ -113,14 +121,14 @@ const HTTPRouteCreatePage: React.FC = () => {
         ...(resourceVersion ? { resourceVersion } : {}),
       },
       spec: {
-        parentRefs: [
-          {
-            name: selectedGateway.name,
-            ...(selectedGateway.namespace && selectedGateway.namespace !== selectedNamespace
-              ? { namespace: selectedGateway.namespace }
-              : {}),
-          },
-        ],
+        parentRefs: validParentRefs.map((ref) => ({
+          name: ref.gatewayName,
+          ...(ref.gatewayNamespace !== selectedNamespace
+            ? { namespace: ref.gatewayNamespace }
+            : {}),
+          ...(ref.sectionName ? { sectionName: ref.sectionName } : {}),
+          ...(ref.port ? { port: ref.port } : {}),
+        })),
         ...(validHostnames.length > 0 ? { hostnames: validHostnames } : {}),
         rules: [
           {
@@ -184,18 +192,21 @@ const HTTPRouteCreatePage: React.FC = () => {
         setFormDisabled(true);
         setRouteName(httpRouteUpdate.metadata?.name || '');
 
-        // Load gateway from parentRefs
-        const parentRef = httpRouteUpdate.spec?.parentRefs?.[0];
-        if (parentRef) {
-          setSelectedGateway({
-            name: parentRef.name || '',
-            namespace: parentRef.namespace || httpRouteUpdate.metadata?.namespace || '',
-          });
+        // Load parentRefs
+        if (httpRouteUpdate.spec?.parentRefs) {
+          const loadedParentRefs = httpRouteUpdate.spec.parentRefs.map((ref, index) => ({
+            id: `parent-ref-${Date.now()}-${index}`,
+            gatewayName: ref.name || '',
+            gatewayNamespace: ref.namespace || httpRouteUpdate.metadata?.namespace || '',
+            sectionName: (ref as any).sectionName || '',
+            port: (ref as any).port || 80,
+          }));
+          setParentRefs(loadedParentRefs);
         }
 
         // Load hostnames
-        const hostnameList = httpRouteUpdate.spec?.hostnames || [''];
-        setHostnames(hostnameList.length > 0 ? hostnameList : ['']);
+        const hostnameList = httpRouteUpdate.spec?.hostnames || [];
+        setHostnames(Array.isArray(hostnameList) ? hostnameList.filter((h) => h.trim()) : []);
 
         console.log('Initializing HTTPRoute with existing data for update');
       }
@@ -216,17 +227,19 @@ const HTTPRouteCreatePage: React.FC = () => {
       setCreationTimestamp(parsedYaml.metadata?.creationTimestamp || '');
 
       // Parse parentRefs
-      const parentRef = parsedYaml.spec?.parentRefs?.[0];
-      if (parentRef) {
-        setSelectedGateway({
-          name: parentRef.name || '',
-          namespace: parentRef.namespace || parsedYaml.metadata?.namespace || '',
-        });
+      if (parsedYaml.spec?.parentRefs) {
+        const yamlParentRefs = parsedYaml.spec.parentRefs.map((ref: any, index: number) => ({
+          id: `parent-ref-${Date.now()}-${index}`,
+          gatewayName: ref.name || '',
+          gatewayNamespace: ref.namespace || parsedYaml.metadata?.namespace || '',
+          sectionName: ref.sectionName || '',
+          port: ref.port || 80,
+        }));
+        setParentRefs(yamlParentRefs);
       }
 
-      // Parse hostnames
-      const yamlHostnames = parsedYaml.spec?.hostnames || [''];
-      setHostnames(yamlHostnames.length > 0 ? yamlHostnames : ['']);
+      const yamlHostnames = parsedYaml.spec?.hostnames || [];
+      setHostnames(Array.isArray(yamlHostnames) ? yamlHostnames.filter((h) => h.trim()) : []);
     } catch (e) {
       console.error(t('Error parsing YAML:'), e);
     }
@@ -241,7 +254,8 @@ const HTTPRouteCreatePage: React.FC = () => {
   };
 
   const formValidation = () => {
-    return !!(routeName && selectedGateway.name);
+    const hasValidParentRef = parentRefs.some((ref) => ref.gatewayName && ref.sectionName);
+    return !!(routeName && hasValidParentRef);
   };
 
   return (
@@ -304,9 +318,10 @@ const HTTPRouteCreatePage: React.FC = () => {
               </FormHelperText>
             </FormGroup>
 
-            <GatewaySelect
-              selectedGateway={selectedGateway}
-              onChange={setSelectedGateway}
+            <ParentReferencesSelect
+              parentRefs={parentRefs}
+              onChange={setParentRefs}
+              isDisabled={formDisabled}
             />
 
             <FormGroup label={t('Hostnames')} fieldId="hostnames">
@@ -324,7 +339,7 @@ const HTTPRouteCreatePage: React.FC = () => {
                     placeholder={t('example.com')}
                     isDisabled={formDisabled}
                   />
-                  {hostnames.length > 1 && !formDisabled && (
+                  {hostnames.length > 0 && !formDisabled && (
                     <Button
                       variant={ButtonVariant.plain}
                       onClick={() => removeHostnameField(index)}
