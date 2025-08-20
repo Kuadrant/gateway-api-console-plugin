@@ -16,7 +16,7 @@ import {
 } from '@patternfly/react-core';
 import { PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
-import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
+import { useK8sWatchResource, useActiveNamespace } from '@openshift-console/dynamic-plugin-sdk';
 
 interface ParentReference {
   id: string;
@@ -26,16 +26,40 @@ interface ParentReference {
   port: number;
 }
 
+// Extend Gateway interface for validation
 interface Gateway {
   metadata: {
     name: string;
     namespace: string;
+    deletionTimestamp?: string;
   };
   spec: {
     listeners?: Array<{
       name: string;
       port: number;
       protocol: string;
+      allowedRoutes?: {
+        namespaces?: {
+          from?: 'All' | 'Same' | 'Selector';
+        };
+        kinds?: Array<{
+          group?: string;
+          kind: string;
+        }>;
+      };
+    }>;
+  };
+  status?: {
+    conditions?: Array<{
+      type: string;
+      status: string;
+    }>;
+    listeners?: Array<{
+      name: string;
+      conditions?: Array<{
+        type: string;
+        status: string;
+      }>;
     }>;
   };
 }
@@ -53,6 +77,7 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
 }) => {
   const { t } = useTranslation('plugin__gateway-api-console-plugin');
   const [availableGateways, setAvailableGateways] = React.useState<Gateway[]>([]);
+  const [selectedNamespace] = useActiveNamespace();
 
   // Load all available Gateways
   const gatewayResource = {
@@ -72,6 +97,98 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
       setAvailableGateways(gatewayData);
     }
   }, [gatewayData, gatewayLoaded, gatewayError]);
+
+  // Gateway validation function
+  const validateGateway = (gateway: Gateway): string | null => {
+    // (1) Gateway exists → Gateway is deleting / Terminating
+    if (gateway.metadata.deletionTimestamp) {
+      return t('Gateway is terminating.');
+    }
+
+    // (2) Gateway exists → Route type is not supported
+    const supportsHTTPRoute = gateway.spec.listeners?.some((listener) => {
+      // Check allowedRoutes at the listener level
+      const allowedKinds = listener.allowedRoutes?.kinds;
+      if (allowedKinds && allowedKinds.length > 0) {
+        return allowedKinds.some(
+          (kind) =>
+            kind.kind === 'HTTPRoute' &&
+            (kind.group === 'gateway.networking.k8s.io' || !kind.group),
+        );
+      }
+      // If allowedKinds are not specified, all types are supported by default for HTTP/HTTPS
+      return listener.protocol === 'HTTP' || listener.protocol === 'HTTPS';
+    });
+
+    if (!supportsHTTPRoute) {
+      return t('Only HTTPRoute is supported by this Gateway.');
+    }
+
+    // (3) Gateway exists → gateway allowedRoutes does not allow
+    const allowsFromNamespace = gateway.spec.listeners?.some((listener) => {
+      const namespacePolicy = listener.allowedRoutes?.namespaces?.from || 'Same';
+      return (
+        namespacePolicy === 'All' ||
+        (namespacePolicy === 'Same' && gateway.metadata.namespace === selectedNamespace)
+      );
+    });
+
+    if (!allowsFromNamespace) {
+      return t('Not allowed by Gateway settings.');
+    }
+
+    return null; //  Gateway is available
+  };
+
+  // Listener validation function
+  const validateListener = (gateway: Gateway, listenerName: string): string | null => {
+    // First, validate the Gateway itself
+    const gatewayValidation = validateGateway(gateway);
+    if (gatewayValidation) return gatewayValidation;
+
+    // (4) Listener is unavailable (Ready=False)
+    const listenerStatus = gateway.status?.listeners?.find((ls) => ls.name === listenerName);
+    if (listenerStatus) {
+      const readyCondition = listenerStatus.conditions?.find((c) => c.type === 'Ready');
+      if (readyCondition && readyCondition.status !== 'True') {
+        return t('Listener is not available for route binding.');
+      }
+    }
+
+    return null; // Listener is available
+  };
+
+  // Sort Gateways: available first, then unavailable
+  const getSortedGateways = () => {
+    return [...availableGateways].sort((a, b) => {
+      const restrictionA = validateGateway(a);
+      const restrictionB = validateGateway(b);
+
+      // Available (without restriction) first
+      if (!restrictionA && restrictionB) return -1;
+      if (restrictionA && !restrictionB) return 1;
+
+      // Within each group, sort by name
+      return a.metadata.name.localeCompare(b.metadata.name);
+    });
+  };
+
+  // Sort Listeners
+  const getSortedSections = (gatewayName: string, gatewayNamespace: string) => {
+    const gateway = availableGateways.find(
+      (gw) => gw.metadata.name === gatewayName && gw.metadata.namespace === gatewayNamespace,
+    );
+
+    if (!gateway) return [];
+
+    return [...(gateway.spec.listeners || [])].sort((a, b) => {
+      const restrictionA = validateListener(gateway, a.name);
+      const restrictionB = validateListener(gateway, b.name);
+      if (!restrictionA && restrictionB) return -1;
+      if (restrictionA && !restrictionB) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  };
 
   // Add new parent reference
   const addParentReference = () => {
@@ -131,14 +248,6 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
       return ref;
     });
     onChange(updatedRefs);
-  };
-
-  // Get available sections for the selected Gateway
-  const getAvailableSections = (gatewayName: string, gatewayNamespace: string) => {
-    const gateway = availableGateways.find(
-      (gw) => gw.metadata.name === gatewayName && gw.metadata.namespace === gatewayNamespace,
-    );
-    return gateway?.spec.listeners || [];
   };
 
   // Validation check
@@ -227,13 +336,22 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
                     isDisabled={isDisabled}
                   >
                     <FormSelectOption key="empty" value="" label={t('Select Gateway')} />
-                    {availableGateways.map((gateway) => (
-                      <FormSelectOption
-                        key={`${gateway.metadata.name}-${gateway.metadata.namespace}`}
-                        value={gateway.metadata.name}
-                        label={`${gateway.metadata.name} (${gateway.metadata.namespace})`}
-                      />
-                    ))}
+                    {getSortedGateways().map((gateway) => {
+                      const restriction = validateGateway(gateway);
+
+                      return (
+                        <FormSelectOption
+                          key={`${gateway.metadata.name}-${gateway.metadata.namespace}`}
+                          value={gateway.metadata.name}
+                          label={
+                            restriction
+                              ? `${gateway.metadata.name} (${gateway.metadata.namespace}) — ${restriction}`
+                              : `${gateway.metadata.name} (${gateway.metadata.namespace})`
+                          }
+                          isDisabled={!!restriction}
+                        />
+                      );
+                    })}
                   </FormSelect>
                 </FormGroup>
 
@@ -242,9 +360,6 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
                     type="text"
                     id={`gateway-namespace-${parentRef.id}`}
                     value={parentRef.gatewayNamespace}
-                    onChange={(_, value) =>
-                      updateParentReference(parentRef.id, 'gatewayNamespace', value)
-                    }
                     placeholder={t('Gateway Namespace')}
                     isDisabled
                   />
@@ -263,14 +378,30 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
                     isDisabled={isDisabled || !parentRef.gatewayName}
                   >
                     <FormSelectOption key="empty" value="" label={t('Select Section')} />
-                    {getAvailableSections(parentRef.gatewayName, parentRef.gatewayNamespace).map(
-                      (listener) => (
-                        <FormSelectOption
-                          key={listener.name}
-                          value={listener.name}
-                          label={`${listener.name} (${listener.protocol})`}
-                        />
-                      ),
+                    {getSortedSections(parentRef.gatewayName, parentRef.gatewayNamespace).map(
+                      (listener) => {
+                        const gateway = availableGateways.find(
+                          (gw) =>
+                            gw.metadata.name === parentRef.gatewayName &&
+                            gw.metadata.namespace === parentRef.gatewayNamespace,
+                        );
+                        const restriction = gateway
+                          ? validateListener(gateway, listener.name)
+                          : null;
+
+                        return (
+                          <FormSelectOption
+                            key={listener.name}
+                            value={listener.name}
+                            label={
+                              restriction
+                                ? `${listener.name} (${listener.protocol}) — ${restriction}`
+                                : `${listener.name} (${listener.protocol})`
+                            }
+                            isDisabled={!!restriction}
+                          />
+                        );
+                      },
                     )}
                   </FormSelect>
                 </FormGroup>
@@ -280,9 +411,6 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
                     type="number"
                     id={`port-${parentRef.id}`}
                     value={parentRef.port.toString()}
-                    onChange={(_, value) =>
-                      updateParentReference(parentRef.id, 'port', parseInt(value) || 80)
-                    }
                     isDisabled
                   />
                 </FormGroup>
@@ -299,6 +427,11 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
           icon={<PlusCircleIcon />}
           onClick={addParentReference}
           isInline
+          isDisabled={
+            parentRefs.length > 0 &&
+            (!parentRefs[parentRefs.length - 1]?.gatewayName ||
+              !parentRefs[parentRefs.length - 1]?.sectionName)
+          }
         >
           {t('Add parent reference')}
         </Button>
