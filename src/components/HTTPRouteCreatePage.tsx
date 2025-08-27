@@ -13,8 +13,15 @@ import {
   Button,
   ActionGroup,
   ButtonVariant,
+  Alert,
+  Modal,
+  FormSelect,
+  FormSelectOption,
+  Wizard,
+  WizardStep,
+  AlertVariant,
 } from '@patternfly/react-core';
-import { PlusCircleIcon, MinusCircleIcon } from '@patternfly/react-icons';
+import { PlusCircleIcon, MinusCircleIcon, TrashIcon, EditIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
 import {
   ResourceYAMLEditor,
@@ -29,6 +36,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import yaml from 'js-yaml';
 import HTTPRouteCreateUpdate from './HTTPRouteCreateUpdate';
 import ParentReferencesSelect from '../utils/ParentReferencesSelect';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 // interface Gateway {
 //   name: string;
@@ -81,6 +89,21 @@ const HTTPRouteCreatePage: React.FC = () => {
   //   Determine mode by checking resourceVersion
   const isEdit = !!resourceVersion;
 
+  const [rules, setRules] = React.useState<any[]>([]);
+  const [isRuleModalOpen, setIsRuleModalOpen] = React.useState(false);
+
+  const [currentRule, setCurrentRule] = React.useState({
+    id: '', // Rule ID
+    pathType: 'PathPrefix', // Matches - Path Type
+    pathValue: '/', // Matches - Path Value
+    method: 'GET', // Matches - HTTP Method
+    filters: [], // Filters array
+    serviceName: '', // Backend service name
+    servicePort: 80, // Backend service port
+  });
+
+  const [editingRuleIndex, setEditingRuleIndex] = React.useState<number | null>(null);
+
   const location = useLocation();
   const pathSplit = location.pathname.split('/');
   const nameEdit = pathSplit[6];
@@ -131,24 +154,45 @@ const HTTPRouteCreatePage: React.FC = () => {
           ...(ref.port ? { port: ref.port } : {}),
         })),
         ...(validHostnames.length > 0 ? { hostnames: validHostnames } : {}),
-        rules: [
-          {
-            matches: [
-              {
-                path: {
-                  type: 'PathPrefix',
-                  value: '/',
+        rules:
+          rules.length > 0
+            ? rules.map((rule) => ({
+                matches: [
+                  {
+                    path: {
+                      type: rule.pathType,
+                      value: rule.pathValue,
+                    },
+                    ...(rule.method && rule.method !== 'GET' ? { method: rule.method } : {}),
+                  },
+                ],
+                ...(rule.filters && rule.filters.length > 0 ? { filters: rule.filters } : {}),
+                backendRefs: [
+                  {
+                    name: rule.serviceName,
+                    port: rule.servicePort,
+                  },
+                ],
+              }))
+            : [
+                // Default rule if the user has not created any
+                {
+                  matches: [
+                    {
+                      path: {
+                        type: 'PathPrefix',
+                        value: '/',
+                      },
+                    },
+                  ],
+                  backendRefs: [
+                    {
+                      name: 'default-service',
+                      port: 80,
+                    },
+                  ],
                 },
-              },
-            ],
-            backendRefs: [
-              {
-                name: 'example-service',
-                port: 80,
-              },
-            ],
-          },
-        ],
+              ],
       },
     };
   };
@@ -241,6 +285,19 @@ const HTTPRouteCreatePage: React.FC = () => {
 
       const yamlHostnames = parsedYaml.spec?.hostnames || [];
       setHostnames(Array.isArray(yamlHostnames) ? yamlHostnames.filter((h) => h.trim()) : []);
+
+      if (parsedYaml.spec?.rules) {
+        const yamlRules = parsedYaml.spec.rules.map((rule: any, index: number) => ({
+          id: `rule-${Date.now()}-${index}`,
+          pathType: rule.matches?.[0]?.path?.type || 'PathPrefix',
+          pathValue: rule.matches?.[0]?.path?.value || '/',
+          method: rule.matches?.[0]?.method || 'GET',
+          filters: rule.filters || [],
+          serviceName: rule.backendRefs?.[0]?.name || '',
+          servicePort: rule.backendRefs?.[0]?.port || 80,
+        }));
+        setRules(yamlRules);
+      }
     } catch (e) {
       console.error(t('Error parsing YAML:'), e);
     }
@@ -256,8 +313,137 @@ const HTTPRouteCreatePage: React.FC = () => {
 
   const formValidation = () => {
     const hasValidParentRef = parentRefs.some((ref) => ref.gatewayName && ref.sectionName);
-    return !!(routeName && hasValidParentRef);
+    const hasValidRules =
+      rules.length > 0 &&
+      rules.every((rule) => rule.id && rule.pathValue && rule.serviceName && rule.servicePort > 0);
+    return !!(routeName && hasValidParentRef && hasValidRules);
   };
+
+  const handleAddRule = () => {
+    setEditingRuleIndex(null);
+    setCurrentRule({
+      id: `rule-${Date.now().toString(36)}`,
+      pathType: 'PathPrefix',
+      pathValue: '/',
+      method: 'GET',
+      filters: [],
+      serviceName: '',
+      servicePort: 80,
+    });
+    setIsRuleModalOpen(true);
+  };
+
+  const handleRuleModalClose = () => {
+    setIsRuleModalOpen(false);
+  };
+
+  const handleRuleSave = () => {
+    let newRules;
+    if (editingRuleIndex !== null) {
+      // EDIT mode - replace existing rule
+      newRules = [...rules];
+      newRules[editingRuleIndex] = { ...currentRule };
+    } else {
+      // CREATE mode - add new rule
+      newRules = [...rules, { ...currentRule }];
+    }
+    setRules(newRules);
+    setIsRuleModalOpen(false);
+    console.log('Rule saved:', currentRule);
+  };
+
+  const handleEditRule = (index: number) => {
+    setEditingRuleIndex(index); // Edit mode
+    setCurrentRule({ ...rules[index] }); // Load data into form
+    setIsRuleModalOpen(true); // Open modal
+  };
+
+  const handleRemoveRule = (index: number) => {
+    const newRules = rules.filter((_, i) => i !== index);
+    setRules(newRules);
+  };
+
+  const ruleWizardSteps = [
+    {
+      name: t('Matches'),
+      nextButtonText: t('Next'),
+      form: (
+        <Form>
+          <FormGroup label={t('Path Type')} isRequired fieldId="path-type">
+            <FormSelect
+              value={currentRule.pathType}
+              onChange={(_, value) => setCurrentRule({ ...currentRule, pathType: value })}
+              aria-label={t('Select path type')}
+            >
+              <FormSelectOption value="PathPrefix" label="PathPrefix" />
+              <FormSelectOption value="Exact" label="Exact" />
+            </FormSelect>
+          </FormGroup>
+
+          <FormGroup label={t('Path Value')} isRequired fieldId="path-value">
+            <TextInput
+              value={currentRule.pathValue}
+              onChange={(_, value) => setCurrentRule({ ...currentRule, pathValue: value })}
+              placeholder="/foo"
+            />
+          </FormGroup>
+
+          <FormGroup label={t('HTTP Method')} isRequired fieldId="http-method">
+            <FormSelect
+              value={currentRule.method}
+              onChange={(_, value) => setCurrentRule({ ...currentRule, method: value })}
+              aria-label={t('Select HTTP method')}
+            >
+              <FormSelectOption value="GET" label="GET" />
+              <FormSelectOption value="POST" label="POST" />
+              <FormSelectOption value="PUT" label="PUT" />
+              <FormSelectOption value="DELETE" label="DELETE" />
+              <FormSelectOption value="PATCH" label="PATCH" />
+            </FormSelect>
+          </FormGroup>
+        </Form>
+      ),
+    },
+    {
+      name: t('Backend Services'),
+      nextButtonText: t('Create'),
+      form: (
+        <Form>
+          <FormGroup label={t('Rule ID')} isRequired fieldId="rule-id">
+            <TextInput
+              value={currentRule.id}
+              onChange={(_, value) => setCurrentRule({ ...currentRule, id: value })}
+              placeholder="rule-abc123"
+            />
+            <FormHelperText>
+              <HelperText>
+                <HelperTextItem>{t('Unique identifier for this rule')}</HelperTextItem>
+              </HelperText>
+            </FormHelperText>
+          </FormGroup>
+
+          <FormGroup label={t('Service Name')} isRequired fieldId="service-name">
+            <TextInput
+              value={currentRule.serviceName}
+              onChange={(_, value) => setCurrentRule({ ...currentRule, serviceName: value })}
+              placeholder="service-a"
+            />
+          </FormGroup>
+
+          <FormGroup label={t('Service Port')} isRequired fieldId="service-port">
+            <TextInput
+              type="number"
+              value={currentRule.servicePort.toString()}
+              onChange={(_, value) =>
+                setCurrentRule({ ...currentRule, servicePort: parseInt(value) || 80 })
+              }
+              placeholder="80"
+            />
+          </FormGroup>
+        </Form>
+      ),
+    },
+  ];
 
   return (
     <>
@@ -367,6 +553,103 @@ const HTTPRouteCreatePage: React.FC = () => {
                 </HelperText>
               </FormHelperText>
             </FormGroup>
+            <FormGroup
+              label={
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                  }}
+                >
+                  <div>{t('Rules')}</div>
+                  <Button variant="secondary" icon={<PlusCircleIcon />} onClick={handleAddRule}>
+                    {t('Add rule')}
+                  </Button>
+                </div>
+              }
+              fieldId="rules"
+            >
+              {rules.length === 0 && (
+                <Alert
+                  variant={AlertVariant.warning}
+                  isInline
+                  title={t('No rules defined. HTTPRoute will use default routing.')}
+                />
+              )}
+
+              {rules.length > 0 && (
+                <Table aria-label={t('Rules table')} variant="compact" borders={false}>
+                  <Thead>
+                    <Tr>
+                      <Th width={15}>{t('Rule ID')}</Th>
+                      <Th width={25}>{t('Matches')}</Th>
+                      <Th width={20}>{t('Filters')}</Th>
+                      <Th width={30}>{t('Backend references')}</Th>
+                      <Th width={10}>{t('Actions')}</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {rules.map((rule, index) => (
+                      <Tr key={index}>
+                        <Td dataLabel={t('Rule ID')}>
+                          <strong>{rule.id}</strong>
+                        </Td>
+                        <Td dataLabel={t('Matches')}>
+                          <div>
+                            {rule.pathType} / {rule.pathValue} / {rule.method}
+                          </div>
+                        </Td>
+                        <Td dataLabel={t('Filters')}>
+                          {rule.filters && rule.filters.length > 0 ? (
+                            <div>
+                              {rule.filters.map((filter, idx) => (
+                                <div key={idx}>{filter}</div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#666' }}>—</span>
+                          )}
+                        </Td>
+                        <Td dataLabel={t('Backend references')}>
+                          <div>
+                            <strong>{rule.serviceName}:</strong> {rule.servicePort}
+                          </div>
+                        </Td>
+                        <Td dataLabel={t('Actions')}>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <Button
+                              variant="plain"
+                              onClick={() => handleEditRule(index)}
+                              aria-label={t('Edit rule')}
+                            >
+                              <EditIcon />
+                            </Button>
+                            <Button
+                              variant="plain"
+                              onClick={() => handleRemoveRule(index)}
+                              isDanger
+                              aria-label={t('Delete rule')}
+                            >
+                              <TrashIcon />
+                            </Button>
+                          </div>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              )}
+
+              <FormHelperText>
+                <HelperText>
+                  <HelperTextItem>
+                    {t('Rules define how to route HTTP requests to backend services')}
+                  </HelperTextItem>
+                </HelperText>
+              </FormHelperText>
+            </FormGroup>
 
             <ActionGroup className="pf-u-mt-0">
               <HTTPRouteCreateUpdate
@@ -391,6 +674,25 @@ const HTTPRouteCreatePage: React.FC = () => {
           />
         </React.Suspense>
       )}
+      <Modal
+        variant="large"
+        title={editingRuleIndex !== null ? t('Edit Rule') : t('Add Rule')}
+        isOpen={isRuleModalOpen}
+        onClose={handleRuleModalClose}
+      >
+        <Wizard onClose={handleRuleModalClose} onSave={handleRuleSave} height="500px">
+          {ruleWizardSteps.map((step, index) => (
+            <WizardStep
+              key={index}
+              name={step.name}
+              id={`rule-step-${index}`}
+              footer={{ nextButtonText: step.nextButtonText }}
+            >
+              {step.form}
+            </WizardStep>
+          ))}
+        </Wizard>
+      </Modal>
     </>
   );
 };
