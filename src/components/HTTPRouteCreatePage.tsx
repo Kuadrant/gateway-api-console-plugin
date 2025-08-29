@@ -15,11 +15,10 @@ import {
   ButtonVariant,
   Alert,
   Modal,
-  FormSelect,
-  FormSelectOption,
   Wizard,
   WizardStep,
   AlertVariant,
+  WizardHeader,
 } from '@patternfly/react-core';
 import { PlusCircleIcon, MinusCircleIcon, TrashIcon, EditIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +36,13 @@ import yaml from 'js-yaml';
 import HTTPRouteCreateUpdate from './HTTPRouteCreateUpdate';
 import ParentReferencesSelect from '../utils/ParentReferencesSelect';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { MatchesWizardStep, validateMatchesStep } from './matches/MatchesWizardStep';
+import {
+  formatMatchesForDisplay,
+  generateMatchesForYAML,
+  parseMatchesFromYAML,
+  validateMatchesInRule,
+} from './matches/MathcesUtils';
 
 // interface Gateway {
 //   name: string;
@@ -51,12 +57,6 @@ interface HTTPRouteEdit extends K8sResourceCommon {
     }>;
     hostnames?: string[];
     rules?: Array<{
-      matches?: Array<{
-        path?: {
-          type?: string;
-          value?: string;
-        };
-      }>;
       backendRefs?: Array<{
         name?: string;
         port?: number;
@@ -88,19 +88,22 @@ const HTTPRouteCreatePage: React.FC = () => {
 
   //   Determine mode by checking resourceVersion
   const isEdit = !!resourceVersion;
-
   const [rules, setRules] = React.useState<any[]>([]);
   const [isRuleModalOpen, setIsRuleModalOpen] = React.useState(false);
 
   const [currentRule, setCurrentRule] = React.useState({
-    id: '', // Rule ID
-    pathType: 'PathPrefix', // Matches - Path Type
-    pathValue: '/', // Matches - Path Value
-    method: 'GET', // Matches - HTTP Method
+    id: `rule-${Date.now().toString(7)}`,
+    matches: [], // Array of match objects
     filters: [], // Filters array
     serviceName: '', // Backend service name
     servicePort: 80, // Backend service port
   });
+
+  const [isMatchesValid, setIsMatchesValid] = React.useState(true);
+
+  React.useEffect(() => {
+    setIsMatchesValid(validateMatchesStep(currentRule));
+  }, [currentRule.matches]);
 
   const [editingRuleIndex, setEditingRuleIndex] = React.useState<number | null>(null);
 
@@ -157,15 +160,9 @@ const HTTPRouteCreatePage: React.FC = () => {
         rules:
           rules.length > 0
             ? rules.map((rule) => ({
-                matches: [
-                  {
-                    path: {
-                      type: rule.pathType,
-                      value: rule.pathValue,
-                    },
-                    ...(rule.method && rule.method !== 'GET' ? { method: rule.method } : {}),
-                  },
-                ],
+                ...(rule.matches.length > 0
+                  ? { matches: generateMatchesForYAML(rule.matches) }
+                  : {}),
                 ...(rule.filters && rule.filters.length > 0 ? { filters: rule.filters } : {}),
                 backendRefs: [
                   {
@@ -174,25 +171,7 @@ const HTTPRouteCreatePage: React.FC = () => {
                   },
                 ],
               }))
-            : [
-                // Default rule if the user has not created any
-                {
-                  matches: [
-                    {
-                      path: {
-                        type: 'PathPrefix',
-                        value: '/',
-                      },
-                    },
-                  ],
-                  backendRefs: [
-                    {
-                      name: 'default-service',
-                      port: 80,
-                    },
-                  ],
-                },
-              ],
+            : [],
       },
     };
   };
@@ -289,9 +268,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       if (parsedYaml.spec?.rules) {
         const yamlRules = parsedYaml.spec.rules.map((rule: any, index: number) => ({
           id: `rule-${Date.now()}-${index}`,
-          pathType: rule.matches?.[0]?.path?.type || 'PathPrefix',
-          pathValue: rule.matches?.[0]?.path?.value || '/',
-          method: rule.matches?.[0]?.method || 'GET',
+          matches: parseMatchesFromYAML(rule.matches),
           filters: rule.filters || [],
           serviceName: rule.backendRefs?.[0]?.name || '',
           servicePort: rule.backendRefs?.[0]?.port || 80,
@@ -313,9 +290,17 @@ const HTTPRouteCreatePage: React.FC = () => {
 
   const formValidation = () => {
     const hasValidParentRef = parentRefs.some((ref) => ref.gatewayName && ref.sectionName);
+
     const hasValidRules =
       rules.length > 0 &&
-      rules.every((rule) => rule.id && rule.pathValue && rule.serviceName && rule.servicePort > 0);
+      rules.every((rule) => {
+        const basicFieldsValid = rule.id && rule.serviceName && rule.servicePort > 0;
+
+        const matchesValid = validateMatchesInRule(rule.matches);
+
+        return basicFieldsValid && matchesValid;
+      });
+
     return !!(routeName && hasValidParentRef && hasValidRules);
   };
 
@@ -323,9 +308,7 @@ const HTTPRouteCreatePage: React.FC = () => {
     setEditingRuleIndex(null);
     setCurrentRule({
       id: `rule-${Date.now().toString(36)}`,
-      pathType: 'PathPrefix',
-      pathValue: '/',
-      method: 'GET',
+      matches: [],
       filters: [],
       serviceName: '',
       servicePort: 80,
@@ -362,47 +345,13 @@ const HTTPRouteCreatePage: React.FC = () => {
     const newRules = rules.filter((_, i) => i !== index);
     setRules(newRules);
   };
-
   const ruleWizardSteps = [
     {
       name: t('Matches'),
       nextButtonText: t('Next'),
-      form: (
-        <Form>
-          <FormGroup label={t('Path Type')} isRequired fieldId="path-type">
-            <FormSelect
-              value={currentRule.pathType}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, pathType: value })}
-              aria-label={t('Select path type')}
-            >
-              <FormSelectOption value="PathPrefix" label="PathPrefix" />
-              <FormSelectOption value="Exact" label="Exact" />
-            </FormSelect>
-          </FormGroup>
-
-          <FormGroup label={t('Path Value')} isRequired fieldId="path-value">
-            <TextInput
-              value={currentRule.pathValue}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, pathValue: value })}
-              placeholder="/foo"
-            />
-          </FormGroup>
-
-          <FormGroup label={t('HTTP Method')} isRequired fieldId="http-method">
-            <FormSelect
-              value={currentRule.method}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, method: value })}
-              aria-label={t('Select HTTP method')}
-            >
-              <FormSelectOption value="GET" label="GET" />
-              <FormSelectOption value="POST" label="POST" />
-              <FormSelectOption value="PUT" label="PUT" />
-              <FormSelectOption value="DELETE" label="DELETE" />
-              <FormSelectOption value="PATCH" label="PATCH" />
-            </FormSelect>
-          </FormGroup>
-        </Form>
-      ),
+      canJumpTo: validateMatchesStep(currentRule),
+      enableNext: validateMatchesStep(currentRule),
+      form: <MatchesWizardStep currentRule={currentRule} setCurrentRule={setCurrentRule} t={t} />,
     },
     {
       name: t('Backend Services'),
@@ -597,9 +546,9 @@ const HTTPRouteCreatePage: React.FC = () => {
                           <strong>{rule.id}</strong>
                         </Td>
                         <Td dataLabel={t('Matches')}>
-                          <div>
-                            {rule.pathType} / {rule.pathValue} / {rule.method}
-                          </div>
+                          <span style={{ color: rule.matches?.length > 0 ? 'inherit' : '#666' }}>
+                            {formatMatchesForDisplay(rule.matches)}
+                          </span>
                         </Td>
                         <Td dataLabel={t('Filters')}>
                           {rule.filters && rule.filters.length > 0 ? (
@@ -678,15 +627,35 @@ const HTTPRouteCreatePage: React.FC = () => {
         variant="large"
         title={editingRuleIndex !== null ? t('Edit Rule') : t('Add Rule')}
         isOpen={isRuleModalOpen}
-        onClose={handleRuleModalClose}
       >
-        <Wizard onClose={handleRuleModalClose} onSave={handleRuleSave} height="500px">
+        <Wizard
+          onClose={handleRuleModalClose}
+          onSave={handleRuleSave}
+          height="700px"
+          header={
+            <WizardHeader
+              title="Wizard in modal"
+              titleId="wiz-modal-demo-title"
+              description="Simple wizard description"
+              descriptionId="wiz-modal-demo-description"
+              closeButtonAriaLabel="Close wizard"
+              onClose={handleRuleModalClose}
+            />
+          }
+        >
           {ruleWizardSteps.map((step, index) => (
             <WizardStep
               key={index}
               name={step.name}
               id={`rule-step-${index}`}
-              footer={{ nextButtonText: step.nextButtonText }}
+              footer={{
+                nextButtonText: step.nextButtonText,
+                ...(index === 0
+                  ? {
+                      isNextDisabled: !isMatchesValid,
+                    }
+                  : {}),
+              }}
             >
               {step.form}
             </WizardStep>
