@@ -11,14 +11,9 @@ import {
   Form,
   Radio,
   Button,
-  ActionGroup,
   ButtonVariant,
   Alert,
   Modal,
-  FormSelect,
-  FormSelectOption,
-  Wizard,
-  WizardStep,
   AlertVariant,
 } from '@patternfly/react-core';
 import { PlusCircleIcon, MinusCircleIcon, TrashIcon, EditIcon } from '@patternfly/react-icons';
@@ -28,42 +23,111 @@ import {
   getGroupVersionKindForResource,
   useK8sModel,
   useK8sWatchResource,
-  K8sResourceCommon,
   useActiveNamespace,
 } from '@openshift-console/dynamic-plugin-sdk';
-import { useHistory, useLocation } from 'react-router-dom';
-// import GatewaySelect from '../utils/GatewaySelect';
+import { useLocation } from 'react-router-dom';
 import yaml from 'js-yaml';
-import HTTPRouteCreateUpdate from './HTTPRouteCreateUpdate';
+import GatewayApiCreateUpdate from './GatewayApiCreateUpdate';
 import ParentReferencesSelect from '../utils/ParentReferencesSelect';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { HTTPRouteResource, HTTPRouteMatch } from './httproute/HTTPRouteModel';
+import HTTPRouteRuleWizard from './httproute/HTTPRouteRuleWizard';
 
-// interface Gateway {
-//   name: string;
-//   namespace: string;
-// }
+const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
+  if (!matches || matches.length === 0) {
+    return [];
+  }
 
-interface HTTPRouteEdit extends K8sResourceCommon {
-  spec?: {
-    parentRefs?: Array<{
-      name?: string;
-      namespace?: string;
-    }>;
-    hostnames?: string[];
-    rules?: Array<{
-      matches?: Array<{
-        path?: {
-          type?: string;
-          value?: string;
-        };
-      }>;
-      backendRefs?: Array<{
-        name?: string;
-        port?: number;
-      }>;
-    }>;
-  };
-}
+  return matches
+    .map((match) => {
+      const yamlMatch: any = {
+        path: {
+          type: match.pathType,
+          value: match.pathValue,
+        },
+      };
+      if (match.method && match.method !== 'GET') {
+        yamlMatch.method = match.method;
+      }
+
+      if (match.headers && match.headers.length > 0) {
+        const validHeaders = match.headers
+          .filter((h) => h.name && h.value && h.name.trim() !== '' && h.value.trim() !== '')
+          .map((h) => ({
+            type: h.type,
+            name: h.name,
+            value: h.value,
+          }));
+
+        if (validHeaders.length > 0) {
+          yamlMatch.headers = validHeaders;
+        }
+      }
+
+      if (match.queryParams && match.queryParams.length > 0) {
+        const validQueryParams = match.queryParams
+          .filter((q) => q.name && q.value && q.name.trim() !== '' && q.value.trim() !== '')
+          .map((q) => ({
+            type: q.type,
+            name: q.name,
+            value: q.value,
+          }));
+
+        if (validQueryParams.length > 0) {
+          yamlMatch.queryParams = validQueryParams;
+        }
+      }
+
+      return yamlMatch;
+    })
+    .filter(Boolean);
+};
+
+const parseMatchesFromYAML = (yamlMatches: any[]): HTTPRouteMatch[] => {
+  if (!yamlMatches || !Array.isArray(yamlMatches)) {
+    return [];
+  }
+
+  return yamlMatches.map((match: any, matchIndex: number) => ({
+    id: `match-${Date.now()}-${matchIndex}`,
+    pathType: match.path?.type || 'PathPrefix',
+    pathValue: match.path?.value || '/',
+    method: match.method || 'GET',
+    headers: match.headers
+      ? match.headers.map((header: any, headerIndex: number) => ({
+          id: `header-${Date.now()}-${headerIndex}`,
+          type: header.type || 'Exact',
+          name: header.name || '',
+          value: header.value || '',
+        }))
+      : [],
+    queryParams: match.queryParams
+      ? match.queryParams.map((queryParam: any, queryParamIndex: number) => ({
+          id: `queryparam-${Date.now()}-${queryParamIndex}`,
+          type: queryParam.type || 'Exact',
+          name: queryParam.name || '',
+          value: queryParam.value || '',
+        }))
+      : [],
+  }));
+};
+
+const validateMatchesInRule = (matches: HTTPRouteMatch[]): boolean => {
+  return (
+    matches.length === 0 ||
+    matches.every((match) => match.pathType && match.pathValue && match.method)
+  );
+};
+
+const formatMatchesForDisplay = (matches: HTTPRouteMatch[]): string => {
+  if (!matches || matches.length === 0) {
+    return '—';
+  }
+
+  return matches
+    .map((match) => `${match.pathType} ${match.pathValue} / ${match.method}`)
+    .join(', ');
+};
 
 interface ParentReference {
   id: string;
@@ -80,23 +144,23 @@ const HTTPRouteCreatePage: React.FC = () => {
   const [routeName, setRouteName] = React.useState('');
   const [hostnames, setHostnames] = React.useState<string[]>([]);
   const [selectedNamespaceRaw] = useActiveNamespace();
+
+  // YAML editor state
+  const [yamlContent, setYamlContent] = React.useState<any>(null);
+  const [yamlError, setYamlError] = React.useState<string | null>(null);
   const [parentRefs, setParentRefs] = React.useState<ParentReference[]>([]);
 
   // Metadata for determining edit/create mode
-  const [creationTimestamp, setCreationTimestamp] = React.useState('');
-  const [resourceVersion, setResourceVersion] = React.useState('');
+  const [originalMetadata, setOriginalMetadata] = React.useState<any>(null);
 
-  //   Determine mode by checking resourceVersion
-  const isEdit = !!resourceVersion;
-
+  //   Determine mode by checking originalMetadata
+  const isEdit = !!originalMetadata;
   const [rules, setRules] = React.useState<any[]>([]);
   const [isRuleModalOpen, setIsRuleModalOpen] = React.useState(false);
 
   const [currentRule, setCurrentRule] = React.useState({
-    id: '', // Rule ID
-    pathType: 'PathPrefix', // Matches - Path Type
-    pathValue: '/', // Matches - Path Value
-    method: 'GET', // Matches - HTTP Method
+    id: `rule-${Date.now().toString(7)}`,
+    matches: [], // Array of match objects
     filters: [], // Filters array
     serviceName: '', // Backend service name
     servicePort: 80, // Backend service port
@@ -106,7 +170,7 @@ const HTTPRouteCreatePage: React.FC = () => {
 
   const location = useLocation();
   const pathSplit = location.pathname.split('/');
-  const nameEdit = pathSplit[6];
+  const nameEdit = pathSplit[5];
   const namespaceEdit = pathSplit[3];
   const [formDisabled, setFormDisabled] = React.useState(false);
   const selectedNamespace =
@@ -129,21 +193,23 @@ const HTTPRouteCreatePage: React.FC = () => {
     setHostnames(newHostnames);
   };
 
-  const createHTTPRoute = () => {
+  // When form completed, build HTTPRoute resource object from form data (following Gateway pattern)
+  const httpRouteObject = React.useMemo(() => {
     // Filter out empty hostnames
     const validHostnames = hostnames.filter((h) => h.trim().length > 0);
     const validParentRefs = parentRefs.filter((ref) => ref.gatewayName && ref.sectionName);
 
-    return {
+    const httpRoute = {
       apiVersion: 'gateway.networking.k8s.io/v1',
       kind: 'HTTPRoute',
-      metadata: {
-        name: routeName,
-        namespace: selectedNamespace,
-        // Add metadata only when editing
-        ...(creationTimestamp ? { creationTimestamp } : {}),
-        ...(resourceVersion ? { resourceVersion } : {}),
-      },
+      metadata: originalMetadata
+        ? {
+            ...originalMetadata,
+          }
+        : {
+            name: routeName,
+            namespace: selectedNamespace,
+          },
       spec: {
         parentRefs: validParentRefs.map((ref) => ({
           name: ref.gatewayName,
@@ -154,50 +220,63 @@ const HTTPRouteCreatePage: React.FC = () => {
           ...(ref.port ? { port: ref.port } : {}),
         })),
         ...(validHostnames.length > 0 ? { hostnames: validHostnames } : {}),
-        rules:
-          rules.length > 0
-            ? rules.map((rule) => ({
-                matches: [
-                  {
-                    path: {
-                      type: rule.pathType,
-                      value: rule.pathValue,
-                    },
-                    ...(rule.method && rule.method !== 'GET' ? { method: rule.method } : {}),
-                  },
-                ],
-                ...(rule.filters && rule.filters.length > 0 ? { filters: rule.filters } : {}),
-                backendRefs: [
-                  {
-                    name: rule.serviceName,
-                    port: rule.servicePort,
-                  },
-                ],
-              }))
-            : [
-                // Default rule if the user has not created any
-                {
-                  matches: [
-                    {
-                      path: {
-                        type: 'PathPrefix',
-                        value: '/',
-                      },
-                    },
-                  ],
-                  backendRefs: [
-                    {
-                      name: 'default-service',
-                      port: 80,
-                    },
-                  ],
-                },
-              ],
+        rules: rules.map((rule) => ({
+          ...(rule.matches.length > 0 ? { matches: generateMatchesForYAML(rule.matches) } : {}),
+          ...(rule.filters && rule.filters.length > 0 ? { filters: rule.filters } : {}),
+          backendRefs: [
+            {
+              name: rule.serviceName,
+              port: rule.servicePort,
+            },
+          ],
+        })),
       },
     };
+
+    return httpRoute;
+  }, [routeName, hostnames, parentRefs, rules, selectedNamespace, originalMetadata]);
+
+  const populateFormFromHTTPRoute = (httpRoute: any, isEditMode = false) => {
+    try {
+      if (httpRoute.metadata?.name) {
+        setRouteName(httpRoute.metadata.name);
+      }
+
+      if (httpRoute.spec?.hostnames) {
+        setHostnames(httpRoute.spec.hostnames);
+      }
+
+      if (httpRoute.spec?.parentRefs && httpRoute.spec.parentRefs.length > 0) {
+        const formattedParentRefs = httpRoute.spec.parentRefs.map((ref: any, index: number) => ({
+          id: `parent-${Date.now()}-${index}`,
+          gatewayName: ref.name || '',
+          gatewayNamespace: ref.namespace || selectedNamespace,
+          sectionName: ref.sectionName || '',
+          port: ref.port || '',
+        }));
+        setParentRefs(formattedParentRefs);
+      }
+
+      if (httpRoute.spec?.rules && httpRoute.spec.rules.length > 0) {
+        const formattedRules = httpRoute.spec.rules.map((rule: any, index: number) => ({
+          id: `rule-${Date.now()}-${index}`,
+          matches: parseMatchesFromYAML(rule.matches),
+          filters: rule.filters || [],
+          serviceName: rule.backendRefs?.[0]?.name || '',
+          servicePort: rule.backendRefs?.[0]?.port || 80,
+        }));
+        setRules(formattedRules);
+      }
+
+      // Only disable form when actually in edit mode (loading existing HTTPRoute)
+      if (isEditMode) {
+        setFormDisabled(true);
+      }
+    } catch (error) {
+      console.error('Error populating form from HTTPRoute:', error);
+    }
   };
 
-  const httpRoute = createHTTPRoute();
   const httpRouteGVK = getGroupVersionKindForResource({
     apiVersion: 'gateway.networking.k8s.io/v1',
     kind: 'HTTPRoute',
@@ -208,8 +287,6 @@ const HTTPRouteCreatePage: React.FC = () => {
     version: httpRouteGVK.version,
     kind: httpRouteGVK.kind,
   });
-
-  const history = useHistory();
 
   // Check if there is an HTTPRoute for editing
   let httpRouteResource = null;
@@ -229,77 +306,40 @@ const HTTPRouteCreatePage: React.FC = () => {
   React.useEffect(() => {
     if (httpRouteResource && httpRouteLoaded && !httpRouteError) {
       if (!Array.isArray(httpRouteData)) {
-        const httpRouteUpdate = httpRouteData as HTTPRouteEdit;
-
-        // Set metadata
-        setCreationTimestamp(httpRouteUpdate.metadata?.creationTimestamp || '');
-        setResourceVersion(httpRouteUpdate.metadata?.resourceVersion || '');
-        setFormDisabled(true);
-        setRouteName(httpRouteUpdate.metadata?.name || '');
-
-        // Load parentRefs
-        if (httpRouteUpdate.spec?.parentRefs) {
-          const loadedParentRefs = httpRouteUpdate.spec.parentRefs.map((ref, index) => ({
-            id: `parent-ref-${Date.now()}-${index}`,
-            gatewayName: ref.name || '',
-            gatewayNamespace: ref.namespace || httpRouteUpdate.metadata?.namespace || '',
-            sectionName: (ref as any).sectionName || '',
-            port: (ref as any).port || 80,
-          }));
-          setParentRefs(loadedParentRefs);
-        }
-
-        // Load hostnames
-        const hostnameList = httpRouteUpdate.spec?.hostnames || [];
-        setHostnames(Array.isArray(hostnameList) ? hostnameList.filter((h) => h.trim()) : []);
-
-        console.log('Initializing HTTPRoute with existing data for update');
+        const httpRouteUpdate = httpRouteData as HTTPRouteResource;
+        console.log('httpRouteUpdate', httpRouteUpdate);
+        setOriginalMetadata(httpRouteUpdate.metadata);
+        populateFormFromHTTPRoute(httpRouteUpdate, true); // Edit mode
+        setYamlContent(httpRouteUpdate);
       }
     } else if (httpRouteError) {
       console.error('Failed to fetch the HTTPRoute resource:', httpRouteError);
     }
   }, [httpRouteData, httpRouteLoaded, httpRouteError, httpRouteResource]);
 
-  const handleYAMLChange = (yamlInput: string) => {
+  React.useEffect(() => {
     try {
-      const parsedYaml = yaml.load(yamlInput) as any;
+      setYamlContent(httpRouteObject);
+    } catch (error) {
+      console.error('Error converting form data to YAML:', error);
+    }
+  }, [httpRouteObject]);
 
-      // Update main fields
-      setRouteName(parsedYaml.metadata?.name || '');
-
-      // Update metadata
-      setResourceVersion(parsedYaml.metadata?.resourceVersion || '');
-      setCreationTimestamp(parsedYaml.metadata?.creationTimestamp || '');
-
-      // Parse parentRefs
-      if (parsedYaml.spec?.parentRefs) {
-        const yamlParentRefs = parsedYaml.spec.parentRefs.map((ref: any, index: number) => ({
-          id: `parent-ref-${Date.now()}-${index}`,
-          gatewayName: ref.name || '',
-          gatewayNamespace: ref.namespace || parsedYaml.metadata?.namespace || '',
-          sectionName: ref.sectionName || '',
-          port: ref.port || 80,
-        }));
-        setParentRefs(yamlParentRefs);
+  // Handle YAML changes and sync to form (following Gateway pattern)
+  const handleYAMLChange = (yamlInput: string) => {
+    setYamlContent(yamlInput);
+    setYamlError(null);
+    try {
+      const parsedHTTPRoute = yaml.load(yamlInput);
+      if (parsedHTTPRoute && typeof parsedHTTPRoute === 'object') {
+        populateFormFromHTTPRoute(parsedHTTPRoute);
       }
-
-      const yamlHostnames = parsedYaml.spec?.hostnames || [];
-      setHostnames(Array.isArray(yamlHostnames) ? yamlHostnames.filter((h) => h.trim()) : []);
-
-      if (parsedYaml.spec?.rules) {
-        const yamlRules = parsedYaml.spec.rules.map((rule: any, index: number) => ({
-          id: `rule-${Date.now()}-${index}`,
-          pathType: rule.matches?.[0]?.path?.type || 'PathPrefix',
-          pathValue: rule.matches?.[0]?.path?.value || '/',
-          method: rule.matches?.[0]?.method || 'GET',
-          filters: rule.filters || [],
-          serviceName: rule.backendRefs?.[0]?.name || '',
-          servicePort: rule.backendRefs?.[0]?.port || 80,
-        }));
-        setRules(yamlRules);
-      }
-    } catch (e) {
-      console.error(t('Error parsing YAML:'), e);
+    } catch (error: any) {
+      const errorMessage =
+        error.message ||
+        'Invalid YAML syntax. Please review the HTTPRoute Resource YAML and try again.';
+      setYamlError(errorMessage);
+      console.warn('Invalid YAML syntax, not updating form:', error);
     }
   };
 
@@ -307,15 +347,19 @@ const HTTPRouteCreatePage: React.FC = () => {
     setRouteName(name);
   };
 
-  const handleCancelResource = () => {
-    history.push(`/k8s/ns/${selectedNamespace}/gateway.networking.k8s.io~v1~HTTPRoute`);
-  };
-
   const formValidation = () => {
     const hasValidParentRef = parentRefs.some((ref) => ref.gatewayName && ref.sectionName);
+
     const hasValidRules =
       rules.length > 0 &&
-      rules.every((rule) => rule.id && rule.pathValue && rule.serviceName && rule.servicePort > 0);
+      rules.every((rule) => {
+        const basicFieldsValid = rule.id && rule.serviceName && rule.servicePort > 0;
+
+        const matchesValid = validateMatchesInRule(rule.matches);
+
+        return basicFieldsValid && matchesValid;
+      });
+
     return !!(routeName && hasValidParentRef && hasValidRules);
   };
 
@@ -323,9 +367,7 @@ const HTTPRouteCreatePage: React.FC = () => {
     setEditingRuleIndex(null);
     setCurrentRule({
       id: `rule-${Date.now().toString(36)}`,
-      pathType: 'PathPrefix',
-      pathValue: '/',
-      method: 'GET',
+      matches: [],
       filters: [],
       serviceName: '',
       servicePort: 80,
@@ -338,7 +380,7 @@ const HTTPRouteCreatePage: React.FC = () => {
   };
 
   const handleRuleSave = () => {
-    let newRules;
+    let newRules: any[];
     if (editingRuleIndex !== null) {
       // EDIT mode - replace existing rule
       newRules = [...rules];
@@ -362,88 +404,6 @@ const HTTPRouteCreatePage: React.FC = () => {
     const newRules = rules.filter((_, i) => i !== index);
     setRules(newRules);
   };
-
-  const ruleWizardSteps = [
-    {
-      name: t('Matches'),
-      nextButtonText: t('Next'),
-      form: (
-        <Form>
-          <FormGroup label={t('Path Type')} isRequired fieldId="path-type">
-            <FormSelect
-              value={currentRule.pathType}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, pathType: value })}
-              aria-label={t('Select path type')}
-            >
-              <FormSelectOption value="PathPrefix" label="PathPrefix" />
-              <FormSelectOption value="Exact" label="Exact" />
-            </FormSelect>
-          </FormGroup>
-
-          <FormGroup label={t('Path Value')} isRequired fieldId="path-value">
-            <TextInput
-              value={currentRule.pathValue}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, pathValue: value })}
-              placeholder="/foo"
-            />
-          </FormGroup>
-
-          <FormGroup label={t('HTTP Method')} isRequired fieldId="http-method">
-            <FormSelect
-              value={currentRule.method}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, method: value })}
-              aria-label={t('Select HTTP method')}
-            >
-              <FormSelectOption value="GET" label="GET" />
-              <FormSelectOption value="POST" label="POST" />
-              <FormSelectOption value="PUT" label="PUT" />
-              <FormSelectOption value="DELETE" label="DELETE" />
-              <FormSelectOption value="PATCH" label="PATCH" />
-            </FormSelect>
-          </FormGroup>
-        </Form>
-      ),
-    },
-    {
-      name: t('Backend Services'),
-      nextButtonText: t('Create'),
-      form: (
-        <Form>
-          <FormGroup label={t('Rule ID')} isRequired fieldId="rule-id">
-            <TextInput
-              value={currentRule.id}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, id: value })}
-              placeholder="rule-abc123"
-            />
-            <FormHelperText>
-              <HelperText>
-                <HelperTextItem>{t('Unique identifier for this rule')}</HelperTextItem>
-              </HelperText>
-            </FormHelperText>
-          </FormGroup>
-
-          <FormGroup label={t('Service Name')} isRequired fieldId="service-name">
-            <TextInput
-              value={currentRule.serviceName}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, serviceName: value })}
-              placeholder="service-a"
-            />
-          </FormGroup>
-
-          <FormGroup label={t('Service Port')} isRequired fieldId="service-port">
-            <TextInput
-              type="number"
-              value={currentRule.servicePort.toString()}
-              onChange={(_, value) =>
-                setCurrentRule({ ...currentRule, servicePort: parseInt(value) || 80 })
-              }
-              placeholder="80"
-            />
-          </FormGroup>
-        </Form>
-      ),
-    },
-  ];
 
   return (
     <>
@@ -597,14 +557,14 @@ const HTTPRouteCreatePage: React.FC = () => {
                           <strong>{rule.id}</strong>
                         </Td>
                         <Td dataLabel={t('Matches')}>
-                          <div>
-                            {rule.pathType} / {rule.pathValue} / {rule.method}
-                          </div>
+                          <span style={{ color: rule.matches?.length > 0 ? 'inherit' : '#666' }}>
+                            {formatMatchesForDisplay(rule.matches)}
+                          </span>
                         </Td>
                         <Td dataLabel={t('Filters')}>
                           {rule.filters && rule.filters.length > 0 ? (
                             <div>
-                              {rule.filters.map((filter, idx) => (
+                              {rule.filters.map((filter: any, idx: number) => (
                                 <div key={idx}>{filter}</div>
                               ))}
                             </div>
@@ -651,47 +611,48 @@ const HTTPRouteCreatePage: React.FC = () => {
               </FormHelperText>
             </FormGroup>
 
-            <ActionGroup className="pf-u-mt-0">
-              <HTTPRouteCreateUpdate
-                httpRouteResource={httpRoute}
-                formValidation={formValidation()}
-                httpRouteModel={httpRouteModel}
-                ns={selectedNamespace}
-                isEdit={isEdit}
-              />
-              <Button variant="link" onClick={handleCancelResource}>
-                {t('Cancel')}
-              </Button>
-            </ActionGroup>
+            <GatewayApiCreateUpdate
+              view={createView}
+              formValidation={formValidation()}
+              model={httpRouteModel}
+              resource={httpRouteObject}
+              ns={selectedNamespace}
+              resourceKind="HTTPRoute"
+            />
           </Form>
         </PageSection>
       ) : (
-        <React.Suspense fallback={<div>{t('Loading...')}</div>}>
-          <ResourceYAMLEditor
-            initialResource={httpRoute}
-            create={!isEdit}
-            onChange={handleYAMLChange}
-          />
-        </React.Suspense>
+        <>
+          {yamlError && (
+            <PageSection>
+              <Alert variant="warning" title={t('Error: YAML Validation')} isInline>
+                {yamlError}
+              </Alert>
+            </PageSection>
+          )}
+          <React.Suspense fallback={<div>{t('Loading YAML editor...')}</div>}>
+            <ResourceYAMLEditor
+              initialResource={yamlContent}
+              onChange={handleYAMLChange}
+              create={!isEdit}
+            />
+          </React.Suspense>
+        </>
       )}
       <Modal
         variant="large"
-        title={editingRuleIndex !== null ? t('Edit Rule') : t('Add Rule')}
+        title={editingRuleIndex !== null ? t('Edit rule') : t('Add rule')}
         isOpen={isRuleModalOpen}
-        onClose={handleRuleModalClose}
       >
-        <Wizard onClose={handleRuleModalClose} onSave={handleRuleSave} height="500px">
-          {ruleWizardSteps.map((step, index) => (
-            <WizardStep
-              key={index}
-              name={step.name}
-              id={`rule-step-${index}`}
-              footer={{ nextButtonText: step.nextButtonText }}
-            >
-              {step.form}
-            </WizardStep>
-          ))}
-        </Wizard>
+        <HTTPRouteRuleWizard
+          isOpen={isRuleModalOpen}
+          onClose={handleRuleModalClose}
+          onSave={handleRuleSave}
+          currentRule={currentRule}
+          setCurrentRule={setCurrentRule}
+          editingRuleIndex={editingRuleIndex}
+          t={t}
+        />
       </Modal>
     </>
   );

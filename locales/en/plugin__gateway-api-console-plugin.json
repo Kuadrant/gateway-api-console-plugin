@@ -57,7 +57,6 @@
   "Enter listener name": "Enter listener name",
   "Enter port (1-65535)": "Enter port (1-65535)",
   "Envoy Gateway": "Envoy Gateway",
-  "Error parsing YAML:": "Error parsing YAML:",
   "Error: YAML Validation": "Error: YAML Validation",
   "example.com": "example.com",
   "Filters": "Filters",
