@@ -23,6 +23,9 @@ import {
 } from '@patternfly/react-core';
 import { PlusCircleIcon, MinusCircleIcon } from '@patternfly/react-icons';
 import { HTTPRouteMatch, HTTPRouteHeader, HTTPRouteQueryParam } from './HTTPRouteModel';
+import FilterActions from './filters/FilterActions';
+import { HTTPRouteFilter } from './filters/filterTypes';
+import { validateFiltersStep } from './filters/filterUtils';
 
 interface HTTPRouteRuleWizardProps {
   isOpen: boolean;
@@ -31,7 +34,7 @@ interface HTTPRouteRuleWizardProps {
   currentRule: {
     id: string;
     matches: HTTPRouteMatch[];
-    filters: any[];
+    filters: HTTPRouteFilter[];
     serviceName: string;
     servicePort: number;
   };
@@ -60,10 +63,15 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 }) => {
   const [activeMatchTab, setActiveMatchTab] = React.useState(0);
   const [isMatchesValid, setIsMatchesValid] = React.useState(true);
+  const [isFiltersValid, setIsFiltersValid] = React.useState(true);
 
   React.useEffect(() => {
     setIsMatchesValid(validateMatchesStep(currentRule));
   }, [currentRule.matches]);
+
+  React.useEffect(() => {
+    setIsFiltersValid(validateFiltersStep(currentRule.filters || []));
+  }, [currentRule.filters]);
 
   // Matches handling functions
   const handleAddMatch = () => {
@@ -262,9 +270,8 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                         position="top"
                         content={
                           <div>
-                            {match.pathType || 'empty'} {t('    |    ')}{' '}
-                            {match.pathValue || 'empty'}
-                            {t('  |  ')} {match.method || 'empty'}
+                            {match.pathType || 'empty'} {'    |    '} {match.pathValue || 'empty'}
+                            {'  |  '} {match.method || 'empty'}
                           </div>
                         }
                       >
@@ -345,13 +352,18 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             <TextInput
                               value={match.pathValue}
                               onChange={(_, value) => {
-                                value = '/' + value.replace(/^\/+/, '');
+                                let newValue = value;
+                                if (match.pathType !== 'RegularExpression') {
+                                  newValue = '/' + value.replace(/^\/+/, '');
+                                }
 
                                 const updatedMatches = [...currentRule.matches];
-                                updatedMatches[index] = { ...match, pathValue: value };
+                                updatedMatches[index] = { ...match, pathValue: newValue };
                                 setCurrentRule({ ...currentRule, matches: updatedMatches });
                               }}
-                              placeholder="/products"
+                              placeholder={
+                                match.pathType === 'RegularExpression' ? '' : '/products'
+                              }
                             />
                           </FormGroup>
                         </div>
@@ -531,6 +543,16 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
       ),
     },
     {
+      name: t('Filters'),
+      nextButtonText: t('Next'),
+      form: (
+        <FilterActions
+          filters={currentRule.filters || []}
+          onChange={(filters) => setCurrentRule({ ...currentRule, filters })}
+        />
+      ),
+    },
+    {
       name: t('Backend Services'),
       nextButtonText: t('Create'),
       form: (
@@ -601,6 +623,10 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
             ...(index === 0
               ? {
                   isNextDisabled: !isMatchesValid,
+                }
+              : index === 1
+              ? {
+                  isNextDisabled: !isFiltersValid,
                 }
               : {}),
           }}

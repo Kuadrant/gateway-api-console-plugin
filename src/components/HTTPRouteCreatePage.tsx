@@ -26,11 +26,16 @@ import {
   useActiveNamespace,
 } from '@openshift-console/dynamic-plugin-sdk';
 import { useLocation } from 'react-router-dom';
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import GatewayApiCreateUpdate from './GatewayApiCreateUpdate';
 import ParentReferencesSelect from '../utils/ParentReferencesSelect';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { HTTPRouteResource, HTTPRouteMatch } from './httproute/HTTPRouteModel';
+import {
+  generateFiltersForYAML,
+  parseFiltersFromYAML,
+  getFilterSummary,
+} from './httproute/filters/filterUtils';
 import HTTPRouteRuleWizard from './httproute/HTTPRouteRuleWizard';
 
 const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
@@ -222,7 +227,9 @@ const HTTPRouteCreatePage: React.FC = () => {
         ...(validHostnames.length > 0 ? { hostnames: validHostnames } : {}),
         rules: rules.map((rule) => ({
           ...(rule.matches.length > 0 ? { matches: generateMatchesForYAML(rule.matches) } : {}),
-          ...(rule.filters && rule.filters.length > 0 ? { filters: rule.filters } : {}),
+          ...(rule.filters && rule.filters.length > 0
+            ? { filters: generateFiltersForYAML(rule.filters) }
+            : {}),
           backendRefs: [
             {
               name: rule.serviceName,
@@ -261,7 +268,7 @@ const HTTPRouteCreatePage: React.FC = () => {
         const formattedRules = httpRoute.spec.rules.map((rule: any, index: number) => ({
           id: `rule-${Date.now()}-${index}`,
           matches: parseMatchesFromYAML(rule.matches),
-          filters: rule.filters || [],
+          filters: parseFiltersFromYAML(rule.filters),
           serviceName: rule.backendRefs?.[0]?.name || '',
           servicePort: rule.backendRefs?.[0]?.port || 80,
         }));
@@ -396,7 +403,7 @@ const HTTPRouteCreatePage: React.FC = () => {
 
   const handleEditRule = (index: number) => {
     setEditingRuleIndex(index); // Edit mode
-    setCurrentRule({ ...rules[index] }); // Load data into form
+    setCurrentRule({ ...rules[index], filters: rules[index].filters || [] }); // Load data into form
     setIsRuleModalOpen(true); // Open modal
   };
 
@@ -565,7 +572,7 @@ const HTTPRouteCreatePage: React.FC = () => {
                           {rule.filters && rule.filters.length > 0 ? (
                             <div>
                               {rule.filters.map((filter: any, idx: number) => (
-                                <div key={idx}>{filter}</div>
+                                <div key={idx}>{getFilterSummary(filter)}</div>
                               ))}
                             </div>
                           ) : (
