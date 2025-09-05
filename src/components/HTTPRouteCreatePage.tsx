@@ -43,6 +43,15 @@ import {
   parseMatchesFromYAML,
   validateMatchesInRule,
 } from './matches/MathcesUtils';
+import {
+  BackendReferencesWizardStep,
+  validateBackendReferencesStep,
+} from './backend-refs/BackendReferencesWizardStep';
+import {
+  generateBackendRefsForYAML,
+  parseBackendRefsFromYAML,
+  validateBackendRefsInRule,
+} from './backend-refs/BackendReferencesUtils';
 
 // interface Gateway {
 //   name: string;
@@ -93,17 +102,20 @@ const HTTPRouteCreatePage: React.FC = () => {
 
   const [currentRule, setCurrentRule] = React.useState({
     id: `rule-${Date.now().toString(7)}`,
-    matches: [], // Array of match objects
-    filters: [], // Filters array
-    serviceName: '', // Backend service name
-    servicePort: 80, // Backend service port
+    matches: [],
+    filters: [],
+    backendRefs: [],
   });
 
   const [isMatchesValid, setIsMatchesValid] = React.useState(true);
-
+  const [isBackendRefsValid, setIsBackendRefsValid] = React.useState(true);
   React.useEffect(() => {
     setIsMatchesValid(validateMatchesStep(currentRule));
   }, [currentRule.matches]);
+
+  React.useEffect(() => {
+    setIsBackendRefsValid(validateBackendReferencesStep(currentRule));
+  }, [currentRule.backendRefs]);
 
   const [editingRuleIndex, setEditingRuleIndex] = React.useState<number | null>(null);
 
@@ -162,14 +174,11 @@ const HTTPRouteCreatePage: React.FC = () => {
             ? rules.map((rule) => ({
                 ...(rule.matches.length > 0
                   ? { matches: generateMatchesForYAML(rule.matches) }
-                  : {}),
+                  : []),
                 ...(rule.filters && rule.filters.length > 0 ? { filters: rule.filters } : {}),
-                backendRefs: [
-                  {
-                    name: rule.serviceName,
-                    port: rule.servicePort,
-                  },
-                ],
+                ...(rule.backendRefs && rule.backendRefs.length > 0
+                  ? { backendRefs: generateBackendRefsForYAML(rule.backendRefs) }
+                  : []),
               }))
             : [],
       },
@@ -270,8 +279,7 @@ const HTTPRouteCreatePage: React.FC = () => {
           id: `rule-${Date.now()}-${index}`,
           matches: parseMatchesFromYAML(rule.matches),
           filters: rule.filters || [],
-          serviceName: rule.backendRefs?.[0]?.name || '',
-          servicePort: rule.backendRefs?.[0]?.port || 80,
+          backendRefs: parseBackendRefsFromYAML(rule.backendRefs || []),
         }));
         setRules(yamlRules);
       }
@@ -297,8 +305,8 @@ const HTTPRouteCreatePage: React.FC = () => {
         const basicFieldsValid = rule.id && rule.serviceName && rule.servicePort > 0;
 
         const matchesValid = validateMatchesInRule(rule.matches);
-
-        return basicFieldsValid && matchesValid;
+        const backendRefsValid = validateBackendRefsInRule(rule.backendRefs || []);
+        return basicFieldsValid && matchesValid && backendRefsValid;
       });
 
     return !!(routeName && hasValidParentRef && hasValidRules);
@@ -310,8 +318,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       id: `rule-${Date.now().toString(36)}`,
       matches: [],
       filters: [],
-      serviceName: '',
-      servicePort: 80,
+      backendRefs: [],
     });
     setIsRuleModalOpen(true);
   };
@@ -356,40 +363,14 @@ const HTTPRouteCreatePage: React.FC = () => {
     {
       name: t('Backend Services'),
       nextButtonText: t('Create'),
+      canJumpTo: validateBackendReferencesStep(currentRule),
+      enableNext: validateBackendReferencesStep(currentRule),
       form: (
-        <Form>
-          <FormGroup label={t('Rule ID')} isRequired fieldId="rule-id">
-            <TextInput
-              value={currentRule.id}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, id: value })}
-              placeholder="rule-abc123"
-            />
-            <FormHelperText>
-              <HelperText>
-                <HelperTextItem>{t('Unique identifier for this rule')}</HelperTextItem>
-              </HelperText>
-            </FormHelperText>
-          </FormGroup>
-
-          <FormGroup label={t('Service Name')} isRequired fieldId="service-name">
-            <TextInput
-              value={currentRule.serviceName}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, serviceName: value })}
-              placeholder="service-a"
-            />
-          </FormGroup>
-
-          <FormGroup label={t('Service Port')} isRequired fieldId="service-port">
-            <TextInput
-              type="number"
-              value={currentRule.servicePort.toString()}
-              onChange={(_, value) =>
-                setCurrentRule({ ...currentRule, servicePort: parseInt(value) || 80 })
-              }
-              placeholder="80"
-            />
-          </FormGroup>
-        </Form>
+        <BackendReferencesWizardStep
+          currentRule={currentRule}
+          setCurrentRule={setCurrentRule}
+          t={t}
+        />
       ),
     },
   ];
@@ -653,6 +634,10 @@ const HTTPRouteCreatePage: React.FC = () => {
                 ...(index === 0
                   ? {
                       isNextDisabled: !isMatchesValid,
+                    }
+                  : index === 1
+                  ? {
+                      isNextDisabled: !isBackendRefsValid,
                     }
                   : {}),
               }}
