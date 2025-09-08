@@ -156,7 +156,7 @@ const HTTPRouteCreatePage: React.FC = () => {
   const [hostnames, setHostnames] = React.useState<string[]>([]);
   const [selectedNamespaceRaw] = useActiveNamespace();
 
-  // YAML editor state 
+  // YAML editor state
   const [yamlContent, setYamlContent] = React.useState<any>(null);
   const [yamlError, setYamlError] = React.useState<string | null>(null);
   const [parentRefs, setParentRefs] = React.useState<ParentReference[]>([]);
@@ -706,7 +706,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       )}
       <Modal
         variant="large"
-        title={editingRuleIndex !== null ? t('Edit Rule') : t('Add Rule')}
+        title={editingRuleIndex !== null ? t('Edit rule') : t('Add rule')}
         isOpen={isRuleModalOpen}
       >
         <Wizard

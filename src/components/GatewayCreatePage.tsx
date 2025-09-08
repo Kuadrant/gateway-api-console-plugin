@@ -1050,7 +1050,7 @@ const GatewayCreatePage: React.FC = () => {
           {createView === 'form' ? (
             <PageSection hasBodyWrapper={false}>
               <Form className="co-m-pane__form">
-                <FormGroup label={t('Gateway Name')} isRequired fieldId="gateway-name">
+                <FormGroup label={t('Gateway name')} isRequired fieldId="gateway-name">
                   <TextInput
                     type="text"
                     id="gateway-name"
@@ -1334,7 +1334,7 @@ const GatewayCreatePage: React.FC = () => {
 
       <Modal
         variant="large"
-        title={editingListenerIndex !== null ? t('Edit Listener') : t('Add Listener')}
+        title={editingListenerIndex !== null ? t('Edit listener') : t('Add listener')}
         isOpen={isModalOpen}
         onClose={handleModalClose}
       >
