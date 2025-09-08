@@ -1,6 +1,16 @@
-gateway-editor-toggle {
-    display: flex;
-    padding: var(--pf-v6-global--spacer--sm) 1.5rem var(--pf-v6-global--spacer--sm) 1.5rem;
-    border-bottom: var(--pf-v6-global--BorderWidth--sm) solid var(--pf-v6-global--BorderColor--100);
-    border-top: var(--pf-v6-global--BorderWidth--sm) solid var(--pf-v6-global--BorderColor--100);
+.gateway-editor-toggle {
+  display: flex;
+  padding: var(--pf-t--global--spacer--md) 0;
+  border-bottom: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+  border-top: var(--pf-t--global--border--width--regular) solid
+    var(--pf-t--global--border--color--default);
+}
+
+.gateway-editor-toggle span {
+  margin-right: 0.5rem;
+}
+
+.gateway-editor-toggle .pf-v6-c-radio {
+  padding: 0 0 0 0.5rem;
 }

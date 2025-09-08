@@ -36,7 +36,7 @@ import {
   useK8sWatchResource,
 } from '@openshift-console/dynamic-plugin-sdk';
 import * as yaml from 'js-yaml';
-import GatewayCreateUpdate from './GatewayCreateUpdate';
+import GatewayApiCreateUpdate from './GatewayApiCreateUpdate';
 import { useLocation } from 'react-router';
 import { GatewayResource } from './gateway/GatewayModel';
 import {
@@ -999,7 +999,7 @@ const GatewayCreatePage: React.FC = () => {
           {create ? t('Create Gateway') : t('Edit Gateway')}
         </title>
       </Helmet>
-      <PageSection hasBodyWrapper={false} className="pf-m-no-padding">
+      <PageSection hasBodyWrapper={false}>
         <div className="co-m-nav-title">
           <Title headingLevel="h1">{create ? t('Create Gateway') : t('Edit Gateway')}</Title>
           <p className="help-block co-m-pane__heading-help-text">
@@ -1010,32 +1010,22 @@ const GatewayCreatePage: React.FC = () => {
             </div>
           </p>
         </div>
-
-        {/* View Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', marginLeft: '16px' }}>
-          <FormGroup
-            className="gateway-editor-toggle"
-            role="radiogroup"
-            isInline
-            hasNoPaddingTop
-            fieldId="create-type-radio-group"
-            label="Create via:"
-          >
-            <Radio
-              name="create-type-radio"
-              label={<div style={{ marginRight: '12px' }}>{t('Form View')}</div>}
-              id="create-type-radio-form"
-              isChecked={createView === 'form'}
-              onChange={() => setCreateView('form')}
-            />
-            <Radio
-              name="create-type-radio"
-              label="YAML"
-              id="create-type-radio-yaml"
-              isChecked={createView === 'yaml'}
-              onChange={() => setCreateView('yaml')}
-            />
-          </FormGroup>
+        <div className="gateway-editor-toggle">
+          <span>Create via:</span>
+          <Radio
+            name="create-type-radio"
+            label="Form"
+            id="create-type-radio-form"
+            isChecked={createView === 'form'}
+            onChange={() => setCreateView('form')}
+          />
+          <Radio
+            name="create-type-radio"
+            label="YAML"
+            id="create-type-radio-yaml"
+            isChecked={createView === 'yaml'}
+            onChange={() => setCreateView('yaml')}
+          />
         </div>
       </PageSection>
 
@@ -1314,7 +1304,7 @@ const GatewayCreatePage: React.FC = () => {
           ) : (
             <>
               {yamlError && (
-                <PageSection hasBodyWrapper={false}>
+                <PageSection>
                   <Alert variant="warning" title={t('Error: YAML Validation')} isInline>
                     {yamlError}
                   </Alert>
@@ -1328,6 +1318,16 @@ const GatewayCreatePage: React.FC = () => {
                 />
               </React.Suspense>
             </>
+          )}
+          {!isLoading && createView === 'form' && (
+            <GatewayApiCreateUpdate
+              view={createView}
+              formValidation={formValidation()}
+              model={gatewayModel}
+              resource={gatewayObject}
+              ns={selectedNamespace}
+              resourceKind="Gateway"
+            />
           )}
         </>
       )}
@@ -1358,17 +1358,6 @@ const GatewayCreatePage: React.FC = () => {
           ))}
         </Wizard>
       </Modal>
-
-      {/* Create/Update Gateway */}
-      {!isLoading && (
-        <GatewayCreateUpdate
-          view={createView}
-          formValidation={formValidation()}
-          gatewayModel={gatewayModel}
-          gatewayResource={gatewayObject}
-          ns={selectedNamespace}
-        />
-      )}
     </>
   );
 };
