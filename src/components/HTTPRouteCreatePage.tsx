@@ -30,7 +30,12 @@ import * as yaml from 'js-yaml';
 import GatewayApiCreateUpdate from './GatewayApiCreateUpdate';
 import ParentReferencesSelect from '../utils/ParentReferencesSelect';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { HTTPRouteResource, HTTPRouteMatch } from './httproute/HTTPRouteModel';
+import {
+  HTTPRouteResource,
+  HTTPRouteMatch,
+  HTTPRouteHeader,
+  HTTPRouteQueryParam,
+} from './httproute/HTTPRouteModel';
 import {
   generateFiltersForYAML,
   parseFiltersFromYAML,
@@ -45,7 +50,20 @@ const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
 
   return matches
     .map((match) => {
-      const yamlMatch: any = {
+      const yamlMatch: {
+        path: { type: HTTPRouteMatch['pathType']; value: string };
+        method?: string;
+        headers?: {
+          type: HTTPRouteMatch['headers'][number]['type'];
+          name: string;
+          value: string;
+        }[];
+        queryParams?: {
+          type: HTTPRouteMatch['queryParams'][number]['type'];
+          name: string;
+          value: string;
+        }[];
+      } = {
         path: {
           type: match.pathType,
           value: match.pathValue,
@@ -88,31 +106,46 @@ const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
     .filter(Boolean);
 };
 
-const parseMatchesFromYAML = (yamlMatches: any[]): HTTPRouteMatch[] => {
+const parseMatchesFromYAML = (
+  yamlMatches: Array<
+    | undefined
+    | null
+    | {
+        path?: { type?: string; value?: string };
+        method?: string;
+        headers?: Array<{ type?: string; name?: string; value?: string }>;
+        queryParams?: Array<{ type?: string; name?: string; value?: string }>;
+      }
+  >,
+): HTTPRouteMatch[] => {
   if (!yamlMatches || !Array.isArray(yamlMatches)) {
     return [];
   }
 
-  return yamlMatches.map((match: any, matchIndex: number) => ({
+  return yamlMatches.map((match, matchIndex: number) => ({
     id: `match-${Date.now()}-${matchIndex}`,
     pathType: match.path?.type || 'PathPrefix',
     pathValue: match.path?.value || '/',
     method: match.method || 'GET',
     headers: match.headers
-      ? match.headers.map((header: any, headerIndex: number) => ({
-          id: `header-${Date.now()}-${headerIndex}`,
-          type: header.type || 'Exact',
-          name: header.name || '',
-          value: header.value || '',
-        }))
+      ? match.headers.map(
+          (header, headerIndex: number): HTTPRouteHeader => ({
+            id: `header-${Date.now()}-${headerIndex}`,
+            type: (header.type as HTTPRouteHeader['type']) || 'Exact',
+            name: header.name || '',
+            value: header.value || '',
+          }),
+        )
       : [],
     queryParams: match.queryParams
-      ? match.queryParams.map((queryParam: any, queryParamIndex: number) => ({
-          id: `queryparam-${Date.now()}-${queryParamIndex}`,
-          type: queryParam.type || 'Exact',
-          name: queryParam.name || '',
-          value: queryParam.value || '',
-        }))
+      ? match.queryParams.map(
+          (queryParam, queryParamIndex: number): HTTPRouteQueryParam => ({
+            id: `queryparam-${Date.now()}-${queryParamIndex}`,
+            type: (queryParam.type as HTTPRouteQueryParam['type']) || 'Exact',
+            name: queryParam.name || '',
+            value: queryParam.value || '',
+          }),
+        )
       : [],
   }));
 };
@@ -151,19 +184,28 @@ const HTTPRouteCreatePage: React.FC = () => {
   const [selectedNamespaceRaw] = useActiveNamespace();
 
   // YAML editor state
-  const [yamlContent, setYamlContent] = React.useState<any>(null);
+  const [yamlContent, setYamlContent] = React.useState<unknown>(null);
   const [yamlError, setYamlError] = React.useState<string | null>(null);
   const [parentRefs, setParentRefs] = React.useState<ParentReference[]>([]);
 
   // Metadata for determining edit/create mode
-  const [originalMetadata, setOriginalMetadata] = React.useState<any>(null);
+  const [originalMetadata, setOriginalMetadata] = React.useState<
+    HTTPRouteResource['metadata'] | null
+  >(null);
 
   //   Determine mode by checking originalMetadata
   const isEdit = !!originalMetadata;
-  const [rules, setRules] = React.useState<any[]>([]);
+  type RuleUI = {
+    id: string;
+    matches: HTTPRouteMatch[];
+    filters: ReturnType<typeof parseFiltersFromYAML>;
+    serviceName: string;
+    servicePort: number;
+  };
+  const [rules, setRules] = React.useState<RuleUI[]>([]);
   const [isRuleModalOpen, setIsRuleModalOpen] = React.useState(false);
 
-  const [currentRule, setCurrentRule] = React.useState({
+  const [currentRule, setCurrentRule] = React.useState<RuleUI>({
     id: `rule-${Date.now().toString(7)}`,
     matches: [], // Array of match objects
     filters: [], // Filters array
@@ -243,29 +285,32 @@ const HTTPRouteCreatePage: React.FC = () => {
     return httpRoute;
   }, [routeName, hostnames, parentRefs, rules, selectedNamespace, originalMetadata]);
 
-  const populateFormFromHTTPRoute = (httpRoute: any, isEditMode = false) => {
+  const populateFormFromHTTPRoute = (httpRoute: unknown, isEditMode = false) => {
     try {
-      if (httpRoute.metadata?.name) {
-        setRouteName(httpRoute.metadata.name);
+      const hr = httpRoute as Partial<HTTPRouteResource>;
+      if (hr.metadata?.name) {
+        setRouteName(hr.metadata.name);
       }
 
-      if (httpRoute.spec?.hostnames) {
-        setHostnames(httpRoute.spec.hostnames);
+      if (hr.spec?.hostnames) {
+        setHostnames(hr.spec.hostnames);
       }
 
-      if (httpRoute.spec?.parentRefs && httpRoute.spec.parentRefs.length > 0) {
-        const formattedParentRefs = httpRoute.spec.parentRefs.map((ref: any, index: number) => ({
-          id: `parent-${Date.now()}-${index}`,
-          gatewayName: ref.name || '',
-          gatewayNamespace: ref.namespace || selectedNamespace,
-          sectionName: ref.sectionName || '',
-          port: ref.port || '',
-        }));
+      if (hr.spec?.parentRefs && hr.spec.parentRefs.length > 0) {
+        const formattedParentRefs: ParentReference[] = hr.spec.parentRefs.map(
+          (ref, index: number) => ({
+            id: `parent-${Date.now()}-${index}`,
+            gatewayName: ref.name || '',
+            gatewayNamespace: ref.namespace || selectedNamespace,
+            sectionName: ref.sectionName || '',
+            port: ref.port || 0,
+          }),
+        );
         setParentRefs(formattedParentRefs);
       }
 
-      if (httpRoute.spec?.rules && httpRoute.spec.rules.length > 0) {
-        const formattedRules = httpRoute.spec.rules.map((rule: any, index: number) => ({
+      if (hr.spec?.rules && hr.spec.rules.length > 0) {
+        const formattedRules = hr.spec.rules.map((rule, index: number) => ({
           id: `rule-${Date.now()}-${index}`,
           matches: parseMatchesFromYAML(rule.matches),
           filters: parseFiltersFromYAML(rule.filters),
@@ -341,16 +386,17 @@ const HTTPRouteCreatePage: React.FC = () => {
       if (parsedHTTPRoute && typeof parsedHTTPRoute === 'object') {
         populateFormFromHTTPRoute(parsedHTTPRoute);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as Error;
       const errorMessage =
-        error.message ||
+        err?.message ||
         'Invalid YAML syntax. Please review the HTTPRoute Resource YAML and try again.';
       setYamlError(errorMessage);
       console.warn('Invalid YAML syntax, not updating form:', error);
     }
   };
 
-  const handleRouteNameChange = (_event: any, name: string) => {
+  const handleRouteNameChange = (_event: React.FormEvent<HTMLInputElement>, name: string) => {
     setRouteName(name);
   };
 
@@ -387,7 +433,7 @@ const HTTPRouteCreatePage: React.FC = () => {
   };
 
   const handleRuleSave = () => {
-    let newRules: any[];
+    let newRules: RuleUI[];
     if (editingRuleIndex !== null) {
       // EDIT mode - replace existing rule
       newRules = [...rules];
@@ -571,7 +617,7 @@ const HTTPRouteCreatePage: React.FC = () => {
                         <Td dataLabel={t('Filters')}>
                           {rule.filters && rule.filters.length > 0 ? (
                             <div>
-                              {rule.filters.map((filter: any, idx: number) => (
+                              {rule.filters.map((filter, idx: number) => (
                                 <div key={idx}>{getFilterSummary(filter)}</div>
                               ))}
                             </div>

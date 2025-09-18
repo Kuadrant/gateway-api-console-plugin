@@ -38,7 +38,13 @@ interface HTTPRouteRuleWizardProps {
     serviceName: string;
     servicePort: number;
   };
-  setCurrentRule: (rule: any) => void;
+  setCurrentRule: (rule: {
+    id: string;
+    matches: HTTPRouteMatch[];
+    filters: HTTPRouteFilter[];
+    serviceName: string;
+    servicePort: number;
+  }) => void;
   editingRuleIndex: number | null;
   t: (key: string) => string;
 }
@@ -94,7 +100,10 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
     setActiveMatchTab(updatedMatches.length - 1);
   };
 
-  const handleMatchTabSelect = (_event: any, tabIndex: number) => {
+  const handleMatchTabSelect = (
+    _event: React.MouseEvent<HTMLElement> | React.KeyboardEvent | unknown,
+    tabIndex: number,
+  ) => {
     setActiveMatchTab(tabIndex);
   };
 

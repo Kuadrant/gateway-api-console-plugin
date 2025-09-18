@@ -1,4 +1,13 @@
-import { HTTPRouteFilter } from './filterTypes';
+import type {
+  HTTPRouteFilter,
+  RequestHeaderModifierFilter,
+  ResponseHeaderModifierFilter,
+  URLRewriteFilter,
+  RequestRedirectFilter,
+  RequestMirrorFilter,
+  HeaderKV,
+  HeaderNameOnly,
+} from './filterTypes';
 
 export const createDefaultFilter = (type: HTTPRouteFilter['type']): HTTPRouteFilter => {
   switch (type) {
@@ -33,12 +42,15 @@ export const generateFiltersForYAML = (filters: HTTPRouteFilter[]): HTTPRouteFil
           const remove = ((hm.remove || []) as Array<string | { id?: string; name: string }>)
             .map((e) => (typeof e === 'string' ? e : e.name))
             .filter((s) => (s || '').trim());
-          const next: any = { type: 'RequestHeaderModifier' };
+          const next: RequestHeaderModifierFilter = { type: 'RequestHeaderModifier' } as const;
           if (add.length || set.length || remove.length) {
-            next.requestHeaderModifier = {};
-            if (add.length) next.requestHeaderModifier.add = add;
-            if (set.length) next.requestHeaderModifier.set = set;
-            if (remove.length) next.requestHeaderModifier.remove = remove;
+            const requestHeaderModifier: NonNullable<
+              RequestHeaderModifierFilter['requestHeaderModifier']
+            > = {};
+            if (add.length) requestHeaderModifier.add = add;
+            if (set.length) requestHeaderModifier.set = set;
+            if (remove.length) requestHeaderModifier.remove = remove;
+            (next as RequestHeaderModifierFilter).requestHeaderModifier = requestHeaderModifier;
           }
           return next as HTTPRouteFilter;
         }
@@ -53,18 +65,24 @@ export const generateFiltersForYAML = (filters: HTTPRouteFilter[]): HTTPRouteFil
           const remove = ((hm.remove || []) as Array<string | { id?: string; name: string }>)
             .map((e) => (typeof e === 'string' ? e : e.name))
             .filter((s) => (s || '').trim());
-          const next: any = { type: 'ResponseHeaderModifier' };
+          const next: ResponseHeaderModifierFilter = { type: 'ResponseHeaderModifier' } as const;
           if (add.length || set.length || remove.length) {
-            next.responseHeaderModifier = {};
-            if (add.length) next.responseHeaderModifier.add = add;
-            if (set.length) next.responseHeaderModifier.set = set;
-            if (remove.length) next.responseHeaderModifier.remove = remove;
+            const responseHeaderModifier: NonNullable<
+              ResponseHeaderModifierFilter['responseHeaderModifier']
+            > = {};
+            if (add.length) responseHeaderModifier.add = add;
+            if (set.length) responseHeaderModifier.set = set;
+            if (remove.length) responseHeaderModifier.remove = remove;
+            (next as ResponseHeaderModifierFilter).responseHeaderModifier = responseHeaderModifier;
           }
           return next as HTTPRouteFilter;
         }
         case 'RequestRedirect': {
           const rr = f.requestRedirect || {};
-          const next: any = { type: 'RequestRedirect', requestRedirect: {} };
+          const next: RequestRedirectFilter = {
+            type: 'RequestRedirect',
+            requestRedirect: {},
+          } as const;
           const scheme = (rr.scheme || '').trim();
           const hostname = (rr.hostname || '').trim();
           const port = typeof rr.port === 'number' ? rr.port : undefined;
@@ -89,16 +107,16 @@ export const generateFiltersForYAML = (filters: HTTPRouteFilter[]): HTTPRouteFil
             }
           }
           if (Object.keys(next.requestRedirect).length === 0) {
-            delete next.requestRedirect;
+            return { type: 'RequestRedirect' } as HTTPRouteFilter;
           }
           return next as HTTPRouteFilter;
         }
         case 'URLRewrite': {
           const ur = f.urlRewrite || {};
-          const next: any = { type: 'URLRewrite' };
+          const next: URLRewriteFilter = { type: 'URLRewrite', urlRewrite: {} } as URLRewriteFilter;
           const hostname = (ur.hostname || '').trim();
           const path = ur.path || undefined;
-          const urlRewrite: any = {};
+          const urlRewrite: URLRewriteFilter['urlRewrite'] = {};
           if (hostname) urlRewrite.hostname = ur.hostname;
           if (path && (path.type === 'ReplaceFullPath' || path.type === 'ReplacePrefixMatch')) {
             if (path.type === 'ReplaceFullPath' && (path.replaceFullPath || '').trim()) {
@@ -122,9 +140,12 @@ export const generateFiltersForYAML = (filters: HTTPRouteFilter[]): HTTPRouteFil
           const backendRef = (rm.backendRef || {}) as { name?: string; port?: number };
           const name = (backendRef.name || '').trim();
           const port = typeof backendRef.port === 'number' ? backendRef.port : undefined;
-          const next: any = { type: 'RequestMirror' };
+          const next: RequestMirrorFilter = {
+            type: 'RequestMirror',
+            requestMirror: { backendRef: { name: '' } },
+          } as RequestMirrorFilter;
           if (name) {
-            next.requestMirror = { backendRef: { name } } as any;
+            next.requestMirror = { backendRef: { name } };
             if (port !== undefined) next.requestMirror.backendRef.port = port;
           }
           return next as HTTPRouteFilter;
@@ -189,70 +210,71 @@ export const getFilterSummary = (filter: HTTPRouteFilter) => {
 export const parseFiltersFromYAML = (filters: HTTPRouteFilter[] | undefined): HTTPRouteFilter[] => {
   if (!Array.isArray(filters) || filters.length === 0) return [];
   return filters.map((f, fi) => {
-    if (!f || !('type' in f)) return f as any;
+    if (!f || !('type' in f)) return f as HTTPRouteFilter;
     switch (f.type) {
       case 'RequestHeaderModifier': {
-        const hm = (f as any).requestHeaderModifier || {};
-        const add = Array.isArray(hm.add)
-          ? (hm.add as Array<{ id?: string; name?: string; value?: string }>).map((i, iIdx) => ({
+        const hm: NonNullable<RequestHeaderModifierFilter['requestHeaderModifier']> =
+          (f as RequestHeaderModifierFilter).requestHeaderModifier || {};
+        const add: HeaderKV[] = Array.isArray(hm.add)
+          ? (hm.add as HeaderKV[]).map((i, iIdx) => ({
               id: i.id || `add-${fi}-${iIdx}-${Date.now()}`,
               name: i.name || '',
               value: i.value || '',
             }))
           : [];
-        const set = Array.isArray(hm.set)
-          ? (hm.set as Array<{ id?: string; name?: string; value?: string }>).map((i, iIdx) => ({
+        const set: HeaderKV[] = Array.isArray(hm.set)
+          ? (hm.set as HeaderKV[]).map((i, iIdx) => ({
               id: i.id || `set-${fi}-${iIdx}-${Date.now()}`,
               name: i.name || '',
               value: i.value || '',
             }))
           : [];
-        const remove = Array.isArray(hm.remove)
-          ? (hm.remove as Array<string | { id?: string; name?: string } | undefined>).map((e, iIdx) =>
+        const remove: HeaderNameOnly[] = Array.isArray(hm.remove)
+          ? (hm.remove as Array<string | HeaderNameOnly | undefined>).map((e, iIdx) =>
               typeof e === 'string'
                 ? { id: `del-${fi}-${iIdx}-${Date.now()}`, name: e || '' }
                 : { id: e?.id || `del-${fi}-${iIdx}-${Date.now()}`, name: e?.name || '' },
             )
           : [];
-        const next: any = { type: 'RequestHeaderModifier', requestHeaderModifier: {} };
-        next.requestHeaderModifier.add = add;
-        next.requestHeaderModifier.set = set;
-        next.requestHeaderModifier.remove = remove;
-        return next as HTTPRouteFilter;
+        const next: RequestHeaderModifierFilter = {
+          type: 'RequestHeaderModifier',
+          requestHeaderModifier: { add, set, remove },
+        };
+        return next;
       }
       case 'ResponseHeaderModifier': {
-        const hm = (f as any).responseHeaderModifier || {};
-        const add = Array.isArray(hm.add)
-          ? (hm.add as Array<{ id?: string; name?: string; value?: string }>).map((i, iIdx) => ({
+        const hm: NonNullable<ResponseHeaderModifierFilter['responseHeaderModifier']> =
+          (f as ResponseHeaderModifierFilter).responseHeaderModifier || {};
+        const add: HeaderKV[] = Array.isArray(hm.add)
+          ? (hm.add as HeaderKV[]).map((i, iIdx) => ({
               id: i.id || `add-${fi}-${iIdx}-${Date.now()}`,
               name: i.name || '',
               value: i.value || '',
             }))
           : [];
-        const set = Array.isArray(hm.set)
-          ? (hm.set as Array<{ id?: string; name?: string; value?: string }>).map((i, iIdx) => ({
+        const set: HeaderKV[] = Array.isArray(hm.set)
+          ? (hm.set as HeaderKV[]).map((i, iIdx) => ({
               id: i.id || `set-${fi}-${iIdx}-${Date.now()}`,
               name: i.name || '',
               value: i.value || '',
             }))
           : [];
-        const remove = Array.isArray(hm.remove)
-          ? (hm.remove as Array<string | { id?: string; name?: string } | undefined>).map((e, iIdx) =>
+        const remove: HeaderNameOnly[] = Array.isArray(hm.remove)
+          ? (hm.remove as Array<string | HeaderNameOnly | undefined>).map((e, iIdx) =>
               typeof e === 'string'
                 ? { id: `del-${fi}-${iIdx}-${Date.now()}`, name: e || '' }
                 : { id: e?.id || `del-${fi}-${iIdx}-${Date.now()}`, name: e?.name || '' },
             )
           : [];
-        const next: any = { type: 'ResponseHeaderModifier', responseHeaderModifier: {} };
-        next.responseHeaderModifier.add = add;
-        next.responseHeaderModifier.set = set;
-        next.responseHeaderModifier.remove = remove;
-        return next as HTTPRouteFilter;
+        const next: ResponseHeaderModifierFilter = {
+          type: 'ResponseHeaderModifier',
+          responseHeaderModifier: { add, set, remove },
+        };
+        return next;
       }
       case 'RequestRedirect': {
-        const rr = (f as any).requestRedirect || {};
-        const next: any = { type: 'RequestRedirect' };
-        const obj: any = {};
+        const rr = (f as RequestRedirectFilter).requestRedirect || {};
+        const obj: NonNullable<RequestRedirectFilter['requestRedirect']> = {};
         if (typeof rr.scheme === 'string') obj.scheme = rr.scheme;
         if (typeof rr.hostname === 'string') obj.hostname = rr.hostname;
         if (typeof rr.port === 'number') obj.port = rr.port;
@@ -264,34 +286,45 @@ export const parseFiltersFromYAML = (filters: HTTPRouteFilter[] | undefined): HT
           if (rr.path.type === 'ReplaceFullPath') {
             obj.path = { type: 'ReplaceFullPath', replaceFullPath: rr.path.replaceFullPath || '' };
           } else {
-            obj.path = { type: 'ReplacePrefixMatch', replacePrefixMatch: rr.path.replacePrefixMatch || '' };
+            obj.path = {
+              type: 'ReplacePrefixMatch',
+              replacePrefixMatch: rr.path.replacePrefixMatch || '',
+            };
           }
         }
-        next.requestRedirect = obj;
-        return next as HTTPRouteFilter;
+        const next: RequestRedirectFilter = { type: 'RequestRedirect', requestRedirect: obj };
+        return next;
       }
       case 'URLRewrite': {
-        const ur = (f as any).urlRewrite || {};
-        const next: any = { type: 'URLRewrite' };
-        const obj: any = {};
+        const ur = (f as URLRewriteFilter).urlRewrite || {};
+        const obj: NonNullable<URLRewriteFilter['urlRewrite']> = {};
         if (typeof ur.hostname === 'string') obj.hostname = ur.hostname;
-        if (ur.path && (ur.path.type === 'ReplaceFullPath' || ur.path.type === 'ReplacePrefixMatch')) {
+        if (
+          ur.path &&
+          (ur.path.type === 'ReplaceFullPath' || ur.path.type === 'ReplacePrefixMatch')
+        ) {
           if (ur.path.type === 'ReplaceFullPath') {
             obj.path = { type: 'ReplaceFullPath', replaceFullPath: ur.path.replaceFullPath || '' };
           } else {
-            obj.path = { type: 'ReplacePrefixMatch', replacePrefixMatch: ur.path.replacePrefixMatch || '' };
+            obj.path = {
+              type: 'ReplacePrefixMatch',
+              replacePrefixMatch: ur.path.replacePrefixMatch || '',
+            };
           }
         }
-        next.urlRewrite = obj;
-        return next as HTTPRouteFilter;
+        const next: URLRewriteFilter = { type: 'URLRewrite', urlRewrite: obj };
+        return next;
       }
       case 'RequestMirror': {
-        const rm = (f as any).requestMirror || {};
-        const backendRef = rm.backendRef || {};
-        const next: any = { type: 'RequestMirror', requestMirror: { backendRef: {} } };
-        next.requestMirror.backendRef.name = backendRef.name || '';
-        if (typeof backendRef.port === 'number') next.requestMirror.backendRef.port = backendRef.port;
-        return next as HTTPRouteFilter;
+        const rm = (f as RequestMirrorFilter).requestMirror || { backendRef: { name: '' } };
+        const backendRef = rm.backendRef || { name: '' };
+        const next: RequestMirrorFilter = {
+          type: 'RequestMirror',
+          requestMirror: { backendRef: { name: backendRef.name || '' } },
+        };
+        if (typeof backendRef.port === 'number')
+          next.requestMirror.backendRef.port = backendRef.port;
+        return next;
       }
       default:
         return f as HTTPRouteFilter;

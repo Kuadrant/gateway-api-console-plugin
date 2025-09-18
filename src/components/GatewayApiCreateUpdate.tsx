@@ -9,12 +9,17 @@ import {
   PageSection,
   ActionGroup,
 } from '@patternfly/react-core';
-import { k8sCreate, k8sUpdate } from '@openshift-console/dynamic-plugin-sdk';
+import {
+  k8sCreate,
+  k8sUpdate,
+  K8sModel,
+  K8sResourceCommon,
+} from '@openshift-console/dynamic-plugin-sdk';
 
-interface GatewayApiCreateUpdateProps {
-  resource: any;
+interface GatewayApiCreateUpdateProps<TResource extends K8sResourceCommon = K8sResourceCommon> {
+  resource: TResource;
   formValidation: boolean;
-  model: any;
+  model: K8sModel;
   ns: string;
   view: string;
   resourceKind?: string;
@@ -83,12 +88,12 @@ const GatewayApiCreateUpdate: React.FC<GatewayApiCreateUpdateProps> = ({
         const resourcePath = `${model.apiGroup}~${model.apiVersion}~${model.kind}`;
         history.push(`/k8s/ns/${ns}/${resourcePath}`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       const action = update ? 'updating' : 'creating';
       setErrorAlertMsg(
         t(`Error ${action} {{kind}}: {{error}}`, {
           kind: resourceKind,
-          error: error,
+          error: error instanceof Error ? error.message : String(error),
         }),
       );
     }

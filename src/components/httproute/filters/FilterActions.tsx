@@ -20,10 +20,18 @@ import {
   Tooltip,
 } from '@patternfly/react-core';
 import { MinusCircleIcon, PlusCircleIcon } from '@patternfly/react-icons';
-import { FilterType } from './filterTypes';
+import type {
+  FilterType,
+  HTTPRouteFilter,
+  RequestHeaderModifierFilter,
+  ResponseHeaderModifierFilter,
+  URLRewriteFilter,
+  RequestRedirectFilter,
+  RequestMirrorFilter,
+  HeaderKV,
+  HeaderNameOnly,
+} from './filterTypes';
 import { getFilterSummary, createDefaultFilter } from './filterUtils';
-
-import { HTTPRouteFilter } from './filterTypes';
 
 type FilterActionsProps = {
   filters: HTTPRouteFilter[];
@@ -73,7 +81,10 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
     setActiveFilterTab(updated.length - 1);
   };
 
-  const handleFilterTabSelect = (_event: any, tabIndex: number) => {
+  const handleFilterTabSelect = (
+    _event: React.MouseEvent<HTMLElement> | React.KeyboardEvent | unknown,
+    tabIndex: number,
+  ) => {
     setActiveFilterTab(Number(tabIndex));
   };
 
@@ -88,7 +99,16 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
     }
   };
 
-  const handleFilterChangeAt = (index: number, updatedPartial: any) => {
+  const handleFilterChangeAt = (
+    index: number,
+    updatedPartial:
+      | Partial<NonNullable<RequestHeaderModifierFilter['requestHeaderModifier']>>
+      | Partial<NonNullable<ResponseHeaderModifierFilter['responseHeaderModifier']>>
+      | Partial<NonNullable<URLRewriteFilter['urlRewrite']>>
+      | Partial<NonNullable<RequestRedirectFilter['requestRedirect']>>
+      | Partial<NonNullable<RequestMirrorFilter['requestMirror']>>
+      | undefined,
+  ) => {
     const copy = [...(filters || [])];
     const current = copy[index] as HTTPRouteFilter;
     let updated: HTTPRouteFilter = current;
@@ -267,7 +287,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                 </div>
 
                 {(() => {
-                  const filter = (filters || [])[activeFilterTab] as any;
+                  const filter = (filters || [])[activeFilterTab] as HTTPRouteFilter | undefined;
                   if (!filter) return null;
 
                   if (
@@ -307,18 +327,23 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                             filter.type === 'RequestHeaderModifier'
                               ? filter.requestHeaderModifier || {}
                               : filter.responseHeaderModifier || {};
-                          if (hm.add) {
-                            Object.entries(hm.add as Record<string, string>).forEach(
-                              ([name, value]) => initRows.push({ action: 'Add', name, value }),
+                          if (Array.isArray(hm.add)) {
+                            (hm.add as HeaderKV[]).forEach(({ name, value }) =>
+                              initRows.push({ action: 'Add', name, value }),
                             );
                           }
-                          if (hm.set) {
-                            Object.entries(hm.set as Record<string, string>).forEach(
-                              ([name, value]) => initRows.push({ action: 'Set', name, value }),
+                          if (Array.isArray(hm.set)) {
+                            (hm.set as HeaderKV[]).forEach(({ name, value }) =>
+                              initRows.push({ action: 'Set', name, value }),
                             );
                           }
                           if (hm.remove) {
-                            hm.remove.forEach((name) => initRows.push({ action: 'Delete', name }));
+                            (hm.remove as Array<string | HeaderNameOnly>).forEach((r) =>
+                              initRows.push({
+                                action: 'Delete',
+                                name: typeof r === 'string' ? r : r.name,
+                              }),
+                            );
                           }
                           const rows =
                             headerRowsByTab[activeFilterTab] ||
@@ -558,7 +583,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                   }
 
                   if (filter.type === 'RequestRedirect') {
-                    const f = filter as any;
+                    const f = filter;
                     return (
                       <>
                         <div
@@ -712,7 +737,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                   }
 
                   if (filter.type === 'RequestMirror') {
-                    const f = filter as any;
+                    const f = filter;
                     return (
                       <>
                         <div
@@ -748,7 +773,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                                 const portNum = value ? Number(value) : undefined;
                                 handleFilterChangeAt(activeFilterTab, {
                                   backendRef: {
-                                    ...(f.requestMirror?.backendRef || {}),
+                                    name: f.requestMirror?.backendRef?.name || '',
                                     port: portNum,
                                   },
                                 });
