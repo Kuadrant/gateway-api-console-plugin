@@ -12,7 +12,6 @@ import {
   TabTitleText,
   TabContent,
   TabContentBody,
-  Tooltip,
   ExpandableSection,
   FormHelperText,
   HelperText,
@@ -265,27 +264,19 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                 </p>
               </div>
 
-              <Tabs
-                activeKey={activeMatchTab}
-                onSelect={handleMatchTabSelect}
-                onAdd={handleAddMatch}
-              >
+              <Tabs activeKey={activeMatchTab} onSelect={handleMatchTabSelect}>
                 {currentRule.matches.map((match, index) => (
                   <Tab
                     key={match.id}
                     eventKey={index}
                     title={
-                      <Tooltip
-                        position="top"
-                        content={
-                          <div>
-                            {match.pathType || 'empty'} {'    |    '} {match.pathValue || 'empty'}
-                            {'  |  '} {match.method || 'empty'}
-                          </div>
-                        }
+                      <span
+                        title={`${match.pathType || 'empty'} | ${match.pathValue || 'empty'} | ${
+                          match.method || 'empty'
+                        }`}
                       >
                         <TabTitleText>Match-{index + 1}</TabTitleText>
-                      </Tooltip>
+                      </span>
                     }
                     tabContentId={`match-content-${index}`}
                   />
@@ -294,13 +285,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 
               {/* Tab Contents */}
               {currentRule.matches.map((match, index) => (
-                <TabContent
-                  key={match.id}
-                  eventKey={index}
-                  id={`match-content-${index}`}
-                  activeKey={activeMatchTab}
-                  hidden={index !== activeMatchTab}
-                >
+                <TabContent key={match.id} eventKey={index} id={`match-content-${index}`}>
                   <TabContentBody style={{ padding: '16px 0' }}>
                     <div
                       style={{
@@ -310,21 +295,22 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                       }}
                     >
                       <div style={{ flex: 1 }}>
-                        {
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'flex-end',
-                              marginBottom: '16px',
-                            }}
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            marginBottom: '16px',
+                          }}
+                        >
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleRemoveMatch(index)}
+                            aria-label={t('Delete match')}
+                            title={t('Delete it permanently')}
                           >
-                            <Tooltip position={'left'} content={<div>Delete it permanently</div>}>
-                              <Button variant="secondary" onClick={() => handleRemoveMatch(index)}>
-                                {t('Delete')}
-                              </Button>
-                            </Tooltip>
-                          </div>
-                        }
+                            {t('Delete')}
+                          </Button>
+                        </div>
                         <div
                           style={{
                             display: 'grid',
@@ -339,6 +325,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             fieldId={`path-type-${index}`}
                           >
                             <FormSelect
+                              id={`path-type-${index}`}
                               value={match.pathType}
                               onChange={(_, value) => {
                                 const updatedMatches = [...currentRule.matches];
@@ -359,6 +346,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 
                           <FormGroup label={t('Path value')} fieldId={`path-value-${index}`}>
                             <TextInput
+                              id={`path-value-${index}`}
                               value={match.pathValue}
                               onChange={(_, value) => {
                                 let newValue = value;
@@ -383,6 +371,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             fieldId={`http-method-${index}`}
                           >
                             <FormSelect
+                              id={`http-method-${index}`}
                               value={match.method}
                               onChange={(_, value) => {
                                 const updatedMatches = [...currentRule.matches];
@@ -440,6 +429,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             <FormSelectOption value="RegularExpression" label="RegularExpression" />
                           </FormSelect>
                           <TextInput
+                            id={`header-name-${header.id}`}
                             type="text"
                             placeholder={t('Header name')}
                             value={header.name}
@@ -448,6 +438,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             }
                           />
                           <TextInput
+                            id={`header-value-${header.id}`}
                             type="text"
                             placeholder={t('Header value')}
                             value={header.value}
@@ -510,6 +501,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             <FormSelectOption value="RegularExpression" label="RegularExpression" />
                           </FormSelect>
                           <TextInput
+                            id={`qp-name-${queryParam.id}`}
                             type="text"
                             placeholder={t('Query param name')}
                             value={queryParam.name}
@@ -518,6 +510,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             }
                           />
                           <TextInput
+                            id={`qp-value-${queryParam.id}`}
                             type="text"
                             placeholder={t('Query param value')}
                             value={queryParam.value}
@@ -568,6 +561,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
         <Form>
           <FormGroup label={t('Rule ID')} isRequired fieldId="rule-id">
             <TextInput
+              id="rule-id"
               value={currentRule.id}
               onChange={(_, value) => setCurrentRule({ ...currentRule, id: value })}
               placeholder="rule-abc123"
@@ -581,6 +575,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 
           <FormGroup label={t('Service Name')} isRequired fieldId="service-name">
             <TextInput
+              id="service-name"
               value={currentRule.serviceName}
               onChange={(_, value) => setCurrentRule({ ...currentRule, serviceName: value })}
               placeholder="service-a"
@@ -590,6 +585,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
           <FormGroup label={t('Service Port')} isRequired fieldId="service-port">
             <TextInput
               type="number"
+              id="service-port"
               value={currentRule.servicePort.toString()}
               onChange={(_, value) =>
                 setCurrentRule({ ...currentRule, servicePort: parseInt(value) || 80 })

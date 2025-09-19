@@ -51,6 +51,8 @@
   "Defines the criteria for a request to match this rule. If multiple matches are specified, they are OR ed. If omitted, this rule matches all requests.": "Defines the criteria for a request to match this rule. If multiple matches are specified, they are OR ed. If omitted, this rule matches all requests.",
   "Defines the criteria for a request to match this rule. If multiple matches are specified, they are OR ed. If omitted, this rule matches all requests. Multiple Matches in one Rule share all BackendRefs.": "Defines the criteria for a request to match this rule. If multiple matches are specified, they are OR ed. If omitted, this rule matches all requests. Multiple Matches in one Rule share all BackendRefs.",
   "Delete": "Delete",
+  "Delete it permanently": "Delete it permanently",
+  "Delete match": "Delete match",
   "Delete rule": "Delete rule",
   "e.g., 192.168.1.100": "e.g., 192.168.1.100",
   "e.g., gateway.example.com": "e.g., gateway.example.com",

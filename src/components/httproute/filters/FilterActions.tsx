@@ -259,6 +259,8 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                           onClick={() => setIsFilterTypeOpen((v) => !v)}
                           isExpanded={isFilterTypeOpen}
                           style={{ width: '100%', marginTop: 12 }}
+                          id="filter-type"
+                          aria-label={t('Filter type')}
                         >
                           {(filters || [])[activeFilterTab]?.type || t('Select type')}
                         </MenuToggle>
@@ -388,6 +390,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                               }}
                             >
                               <FormSelect
+                                id={`hdr-action-${idx}`}
                                 value={op.action}
                                 onChange={(_, value) => {
                                   const updatedAction = value as 'Add' | 'Set' | 'Delete';
@@ -411,6 +414,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                                 <FormSelectOption value="Delete" label={t('Delete')} />
                               </FormSelect>
                               <TextInput
+                                id={`hdr-name-${idx}`}
                                 value={op.name}
                                 onChange={(_, value) => {
                                   const next = { ...op, name: value } as {
@@ -429,6 +433,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                               />
                               {op.action !== 'Delete' ? (
                                 <TextInput
+                                  id={`hdr-value-${idx}`}
                                   value={op.value}
                                   onChange={(_, value) => {
                                     const next = { ...op, value } as {
@@ -446,7 +451,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                                   placeholder={op.action === 'Add' ? '{UUID}' : 'application/json'}
                                 />
                               ) : (
-                                <div aria-hidden="true" />
+                                <div role="presentation" />
                               )}
                               <Button
                                 variant={ButtonVariant.plain}
@@ -516,8 +521,9 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                             marginTop: 8,
                           }}
                         >
-                          <FormGroup label={t('Hostname')} fieldId="ur-hostname">
+                          <FormGroup label={t('Hostname')} fieldId="url-hostname">
                             <TextInput
+                              id="url-hostname"
                               value={filter.urlRewrite?.hostname || ''}
                               onChange={(_, value) =>
                                 handleFilterChangeAt(activeFilterTab, { hostname: value })
@@ -534,8 +540,9 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                             marginTop: 8,
                           }}
                         >
-                          <FormGroup label={t('Path replacement type')} fieldId="ur-path-type">
+                          <FormGroup label={t('Path replacement type')} fieldId="url-path-type">
                             <FormSelect
+                              id="url-path-type"
                               value={filter.urlRewrite?.path?.type || 'ReplaceFullPath'}
                               onChange={(_, value) => {
                                 const type = value as 'ReplaceFullPath' | 'ReplacePrefixMatch';
@@ -558,8 +565,9 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                               />
                             </FormSelect>
                           </FormGroup>
-                          <FormGroup label={t('Path rewrite')} fieldId="ur-path-value">
+                          <FormGroup label={t('Path rewrite')} fieldId="url-path-value">
                             <TextInput
+                              id="url-path-value"
                               value={
                                 filter.urlRewrite?.path?.type === 'ReplaceFullPath'
                                   ? filter.urlRewrite?.path?.replaceFullPath || ''
@@ -623,6 +631,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                             <>
                               <FormGroup label={t('Scheme')} fieldId="rr-scheme">
                                 <FormSelect
+                                  id="rr-scheme"
                                   value={f.requestRedirect?.scheme || 'https'}
                                   onChange={(_, value) =>
                                     handleFilterChangeAt(activeFilterTab, { scheme: value })
@@ -640,6 +649,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                               >
                                 <FormGroup label={t('Path redirect type')} fieldId="rr-path-type">
                                   <FormSelect
+                                    id="rr-path-type"
                                     value={f.requestRedirect?.path?.type || 'ReplaceFullPath'}
                                     onChange={(_, value) => {
                                       const type = value as
@@ -669,6 +679,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                                 </FormGroup>
                                 <FormGroup label={t('Redirect path value')} fieldId="rr-path-value">
                                   <TextInput
+                                    id="rr-path-value"
                                     value={
                                       f.requestRedirect?.path?.type === 'ReplaceFullPath'
                                         ? f.requestRedirect?.path?.replaceFullPath || ''
@@ -693,6 +704,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                             <FormGroup label={t('Hostname')} fieldId="rr-hostname">
                               <TextInput
+                                id="rr-hostname"
                                 value={f.requestRedirect?.hostname || ''}
                                 onChange={(_, value) =>
                                   handleFilterChangeAt(activeFilterTab, { hostname: value })
@@ -702,6 +714,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                             </FormGroup>
                             <FormGroup label={t('Port')} fieldId="rr-port">
                               <TextInput
+                                id="rr-port"
                                 value={
                                   (f.requestRedirect?.port as number | undefined)?.toString?.() ||
                                   ''
@@ -715,6 +728,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                             </FormGroup>
                             <FormGroup label={t('Status code')} fieldId="rr-status">
                               <FormSelect
+                                id="rr-status"
                                 value={
                                   (
                                     f.requestRedirect?.statusCode as number | undefined
@@ -750,6 +764,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                         >
                           <FormGroup label={t('Mirror backend name')} fieldId="rm-name">
                             <TextInput
+                              id="rm-name"
                               value={f.requestMirror?.backendRef?.name || ''}
                               onChange={(_, value) =>
                                 handleFilterChangeAt(activeFilterTab, {
@@ -764,6 +779,7 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                           </FormGroup>
                           <FormGroup label={t('Port')} fieldId="rm-port">
                             <TextInput
+                              id="rm-port"
                               value={
                                 (
                                   f.requestMirror?.backendRef?.port as number | undefined

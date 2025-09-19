@@ -112,12 +112,12 @@ export const generateFiltersForYAML = (filters: HTTPRouteFilter[]): HTTPRouteFil
           return next as HTTPRouteFilter;
         }
         case 'URLRewrite': {
-          const ur = f.urlRewrite || {};
+          const url = f.urlRewrite || {};
           const next: URLRewriteFilter = { type: 'URLRewrite', urlRewrite: {} } as URLRewriteFilter;
-          const hostname = (ur.hostname || '').trim();
-          const path = ur.path || undefined;
+          const hostname = (url.hostname || '').trim();
+          const path = url.path || undefined;
           const urlRewrite: URLRewriteFilter['urlRewrite'] = {};
-          if (hostname) urlRewrite.hostname = ur.hostname;
+          if (hostname) urlRewrite.hostname = url.hostname;
           if (path && (path.type === 'ReplaceFullPath' || path.type === 'ReplacePrefixMatch')) {
             if (path.type === 'ReplaceFullPath' && (path.replaceFullPath || '').trim()) {
               urlRewrite.path = {
@@ -296,19 +296,19 @@ export const parseFiltersFromYAML = (filters: HTTPRouteFilter[] | undefined): HT
         return next;
       }
       case 'URLRewrite': {
-        const ur = (f as URLRewriteFilter).urlRewrite || {};
+        const url = (f as URLRewriteFilter).urlRewrite || {};
         const obj: NonNullable<URLRewriteFilter['urlRewrite']> = {};
-        if (typeof ur.hostname === 'string') obj.hostname = ur.hostname;
+        if (typeof url.hostname === 'string') obj.hostname = url.hostname;
         if (
-          ur.path &&
-          (ur.path.type === 'ReplaceFullPath' || ur.path.type === 'ReplacePrefixMatch')
+          url.path &&
+          (url.path.type === 'ReplaceFullPath' || url.path.type === 'ReplacePrefixMatch')
         ) {
-          if (ur.path.type === 'ReplaceFullPath') {
-            obj.path = { type: 'ReplaceFullPath', replaceFullPath: ur.path.replaceFullPath || '' };
+          if (url.path.type === 'ReplaceFullPath') {
+            obj.path = { type: 'ReplaceFullPath', replaceFullPath: url.path.replaceFullPath || '' };
           } else {
             obj.path = {
               type: 'ReplacePrefixMatch',
-              replacePrefixMatch: ur.path.replacePrefixMatch || '',
+              replacePrefixMatch: url.path.replacePrefixMatch || '',
             };
           }
         }
@@ -359,10 +359,10 @@ export const isFilterConfigValid = (f: HTTPRouteFilter): boolean => {
       return Boolean(rr.path?.type && (rr.path.replaceFullPath || rr.path.replacePrefixMatch));
     }
     case 'URLRewrite': {
-      const ur = f.urlRewrite || {};
+      const url = f.urlRewrite || {};
       return Boolean(
-        (ur.hostname || '').trim?.() ||
-          (ur.path?.type && (ur.path.replaceFullPath || ur.path.replacePrefixMatch)),
+        (url.hostname || '').trim?.() ||
+          (url.path?.type && (url.path.replaceFullPath || url.path.replacePrefixMatch)),
       );
     }
     case 'RequestMirror': {
