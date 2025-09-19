@@ -74,7 +74,8 @@
       "GatewaySingleOverview": "./components/GatewaySingleOverview",
       "HTTPRouteSingleOverview": "./components/HTTPRouteSingleOverview",
       "GatewayCreatePage": "./components/GatewayCreatePage",
-      "HTTPRouteCreatePage": "./components/HTTPRouteCreatePage"
+      "HTTPRouteCreatePage": "./components/HTTPRouteCreatePage",
+      "useHTTPRouteActions": "./components/httproute/useHTTPRouteActions"
     },
     "dependencies": {
       "@console/pluginAPI": "*"

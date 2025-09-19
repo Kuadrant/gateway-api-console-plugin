@@ -53,6 +53,17 @@
     }
   },
   {
+    "type": "console.action/resource-provider",
+    "properties": {
+      "model": {
+        "group": "gateway.networking.k8s.io",
+        "version": "v1",
+        "kind": "HTTPRoute"
+      },
+      "provider": { "$codeRef": "useHTTPRouteActions" }
+    }
+  },
+  {
     "type": "console.resource/create",
     "properties": {
       "model": {
