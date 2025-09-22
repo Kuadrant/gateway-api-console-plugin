@@ -25,6 +25,7 @@ import { validateFiltersStep } from './filters/filterUtils';
 import { HTTPRouteBackendRef } from './backend-refs/backendTypes';
 import { areBackendRefsValid } from './backend-refs/backendUtils';
 import BackendReferencesWizardStep from './backend-refs/BackendActions';
+import ReviewStep from './review/ReviewStep';
 
 interface HTTPRouteRuleWizardProps {
   isOpen: boolean;
@@ -81,6 +82,17 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
   React.useEffect(() => {
     setIsBackendRefsValid(areBackendRefsValid(currentRule.backendRefs || []));
   }, [currentRule.backendRefs]);
+
+  const [isReviewValid, setIsReviewValid] = React.useState(true);
+
+  React.useEffect(() => {
+    const hasMatches = currentRule.matches?.length > 0;
+    const hasFilters = currentRule.filters?.length > 0;
+    const hasBackendService = !!(currentRule.serviceName && currentRule.servicePort > 0);
+
+    const isValid = hasMatches || hasFilters || hasBackendService;
+    setIsReviewValid(isValid);
+  }, [currentRule.matches, currentRule.filters, currentRule.serviceName, currentRule.servicePort]);
 
   // Matches handling functions
   const handleAddMatch = () => {
@@ -569,6 +581,11 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
         />
       ),
     },
+    {
+      name: t('Review and create'),
+      nextButtonText: t('Create'),
+      form: <ReviewStep currentRule={currentRule} t={t} />,
+    },
   ];
 
   if (!isOpen) {
@@ -606,6 +623,8 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
               ? {
                   isNextDisabled: !isFiltersValid,
                 }
+              : index === 3
+              ? { isNextDisabled: !isReviewValid }
               : {}),
             ...(index === 2 ? { isNextDisabled: !isBackendRefsValid } : {}),
           }}
