@@ -288,7 +288,7 @@ const HTTPRouteCreatePage: React.FC = () => {
     return httpRoute;
   }, [routeName, hostnames, parentRefs, rules, selectedNamespace, originalMetadata]);
 
-  const populateFormFromHTTPRoute = (httpRoute: unknown, isEditMode = false) => {
+  const populateFormFromHTTPRoute = (httpRoute: unknown) => {
     try {
       const hr = httpRoute as Partial<HTTPRouteResource>;
       if (hr.metadata?.name && hr.metadata.name !== routeName) setRouteName(hr.metadata.name);
@@ -363,7 +363,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       setOriginalMetadata(httpRouteUpdate.metadata);
 
       if (!hasInitializedFromResource.current) {
-        populateFormFromHTTPRoute(httpRouteUpdate, true);
+        populateFormFromHTTPRoute(httpRouteUpdate);
         hasInitializedFromResource.current = true;
 
         // Set initial YAML content if in YAML view
@@ -376,19 +376,7 @@ const HTTPRouteCreatePage: React.FC = () => {
     }
   }, [httpRouteData, httpRouteLoaded, httpRouteError, httpRouteResource, createView]);
 
-  React.useEffect(() => {
-    if (createView === 'yaml' && hasInitializedFromResource.current) {
-      try {
-        setYamlContent(httpRouteObject);
-      } catch (error) {
-        console.error('Error setting YAML content:', error);
-      }
-    }
-  }, [httpRouteObject, createView]);
-
-  // Handle YAML changes and sync to form (following Gateway pattern)
-  const handleYAMLChange = (yamlInput: string) => {
-    setYamlContent(yamlInput);
+  const parseYAMLToForm = (yamlInput: string) => {
     setYamlError(null);
     try {
       const parsedHTTPRoute = yaml.load(yamlInput);
@@ -403,6 +391,28 @@ const HTTPRouteCreatePage: React.FC = () => {
       setYamlError(errorMessage);
       console.warn('Invalid YAML syntax, not updating form:', error);
     }
+  };
+
+  const handleYAMLChange = (yamlInput: string) => {
+    setYamlContent(yamlInput);
+  };
+
+  const handleViewSwitch = (newView: 'form' | 'yaml') => {
+    if (newView === 'form' && createView === 'yaml') {
+      // Switching from YAML to form - sync YAML to form
+      if (yamlContent) {
+        parseYAMLToForm(
+          typeof yamlContent === 'string' ? yamlContent : JSON.stringify(yamlContent),
+        );
+      }
+    } else if (newView === 'yaml' && createView === 'form') {
+      try {
+        setYamlContent(httpRouteObject);
+      } catch (error) {
+        console.error('Error setting YAML content:', error);
+      }
+    }
+    setCreateView(newView);
   };
 
   const handleRouteNameChange = (_event: React.FormEvent<HTMLInputElement>, name: string) => {
@@ -432,22 +442,23 @@ const HTTPRouteCreatePage: React.FC = () => {
     if (!formValidation()) return;
     setSubmitError(null);
     try {
+      const httpRouteResource = httpRouteObject as HTTPRouteResource;
       if (isUpdate) {
         await k8sUpdate({
           model: httpRouteModel,
-          data: httpRouteObject as any,
-          ns: (httpRouteObject as any).metadata.namespace,
-          name: (httpRouteObject as any).metadata.name,
+          data: httpRouteResource,
+          ns: httpRouteResource.metadata.namespace,
+          name: httpRouteResource.metadata.name,
         });
       } else {
         await k8sCreate({
           model: httpRouteModel,
-          data: httpRouteObject as any,
-          ns: (httpRouteObject as any).metadata.namespace,
+          data: httpRouteResource,
+          ns: httpRouteResource.metadata.namespace,
         });
       }
       const resourcePath = `${httpRouteModel.apiGroup}~${httpRouteModel.apiVersion}~${httpRouteModel.kind}`;
-      history.push(`/k8s/ns/${(httpRouteObject as any).metadata.namespace}/${resourcePath}`);
+      history.push(`/k8s/ns/${httpRouteResource.metadata.namespace}/${resourcePath}`);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setSubmitError(message);
@@ -525,14 +536,14 @@ const HTTPRouteCreatePage: React.FC = () => {
             label={t('Form')}
             id="create-type-radio-form"
             isChecked={createView === 'form'}
-            onChange={() => setCreateView('form')}
+            onChange={() => handleViewSwitch('form')}
           />
           <Radio
             name="create-type-radio"
             label={t('YAML')}
             id="create-type-radio-yaml"
             isChecked={createView === 'yaml'}
-            onChange={() => setCreateView('yaml')}
+            onChange={() => handleViewSwitch('yaml')}
           />
         </FormGroup>
       </PageSection>
