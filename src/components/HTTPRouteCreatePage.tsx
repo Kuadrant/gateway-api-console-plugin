@@ -254,6 +254,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       metadata: originalMetadata
         ? {
             ...originalMetadata,
+            name: routeName,
           }
         : {
             name: routeName,
@@ -357,16 +358,18 @@ const HTTPRouteCreatePage: React.FC = () => {
   const hasInitializedFromResource = React.useRef(false);
 
   React.useEffect(() => {
-    if (httpRouteResource && httpRouteLoaded && !httpRouteError) {
-      if (!Array.isArray(httpRouteData)) {
-        const httpRouteUpdate = httpRouteData as HTTPRouteResource;
-        console.log('httpRouteUpdate', httpRouteUpdate);
-        setOriginalMetadata(httpRouteUpdate.metadata);
-        if (!hasInitializedFromResource.current) {
-          populateFormFromHTTPRoute(httpRouteUpdate, true); // Edit mode
-          hasInitializedFromResource.current = true;
+    if (httpRouteResource && httpRouteLoaded && !httpRouteError && !Array.isArray(httpRouteData)) {
+      const httpRouteUpdate = httpRouteData as HTTPRouteResource;
+      setOriginalMetadata(httpRouteUpdate.metadata);
+
+      if (!hasInitializedFromResource.current) {
+        populateFormFromHTTPRoute(httpRouteUpdate, true);
+        hasInitializedFromResource.current = true;
+
+        // Set initial YAML content if in YAML view
+        if (createView === 'yaml') {
+          setYamlContent(httpRouteUpdate);
         }
-        if (createView === 'yaml') setYamlContent(httpRouteUpdate);
       }
     } else if (httpRouteError) {
       console.error('Failed to fetch the HTTPRoute resource:', httpRouteError);
@@ -374,11 +377,12 @@ const HTTPRouteCreatePage: React.FC = () => {
   }, [httpRouteData, httpRouteLoaded, httpRouteError, httpRouteResource, createView]);
 
   React.useEffect(() => {
-    if (createView !== 'yaml') return;
-    try {
-      setYamlContent(httpRouteObject);
-    } catch (error) {
-      console.error('Error converting form data to YAML:', error);
+    if (createView === 'yaml' && hasInitializedFromResource.current) {
+      try {
+        setYamlContent(httpRouteObject);
+      } catch (error) {
+        console.error('Error setting YAML content:', error);
+      }
     }
   }, [httpRouteObject, createView]);
 

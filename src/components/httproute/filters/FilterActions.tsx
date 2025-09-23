@@ -29,7 +29,6 @@ import type {
   RequestRedirectFilter,
   RequestMirrorFilter,
   HeaderKV,
-  HeaderNameOnly,
 } from './filterTypes';
 import { getFilterSummary, createDefaultFilter } from './filterUtils';
 
@@ -340,10 +339,10 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
                             );
                           }
                           if (hm.remove) {
-                            (hm.remove as Array<string | HeaderNameOnly>).forEach((r) =>
+                            (hm.remove as string[]).forEach((name) =>
                               initRows.push({
                                 action: 'Delete',
-                                name: typeof r === 'string' ? r : r.name,
+                                name,
                               }),
                             );
                           }

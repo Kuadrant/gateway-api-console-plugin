@@ -229,12 +229,10 @@ export const parseFiltersFromYAML = (filters: HTTPRouteFilter[] | undefined): HT
               value: i.value || '',
             }))
           : [];
-        const remove: HeaderNameOnly[] = Array.isArray(hm.remove)
-          ? (hm.remove as Array<string | HeaderNameOnly | undefined>).map((e, iIdx) =>
-              typeof e === 'string'
-                ? { id: `del-${fi}-${iIdx}-${Date.now()}`, name: e || '' }
-                : { id: e?.id || `del-${fi}-${iIdx}-${Date.now()}`, name: e?.name || '' },
-            )
+        const remove: string[] = Array.isArray(hm.remove)
+          ? (hm.remove as Array<string | HeaderNameOnly | undefined>)
+              .map((e) => (typeof e === 'string' ? e : e?.name || ''))
+              .filter((s) => s.trim())
           : [];
         const next: RequestHeaderModifierFilter = {
           type: 'RequestHeaderModifier',
@@ -259,12 +257,10 @@ export const parseFiltersFromYAML = (filters: HTTPRouteFilter[] | undefined): HT
               value: i.value || '',
             }))
           : [];
-        const remove: HeaderNameOnly[] = Array.isArray(hm.remove)
-          ? (hm.remove as Array<string | HeaderNameOnly | undefined>).map((e, iIdx) =>
-              typeof e === 'string'
-                ? { id: `del-${fi}-${iIdx}-${Date.now()}`, name: e || '' }
-                : { id: e?.id || `del-${fi}-${iIdx}-${Date.now()}`, name: e?.name || '' },
-            )
+        const remove: string[] = Array.isArray(hm.remove)
+          ? (hm.remove as Array<string | HeaderNameOnly | undefined>)
+              .map((e) => (typeof e === 'string' ? e : e?.name || ''))
+              .filter((s) => s.trim())
           : [];
         const next: ResponseHeaderModifierFilter = {
           type: 'ResponseHeaderModifier',
