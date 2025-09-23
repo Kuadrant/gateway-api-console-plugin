@@ -69,9 +69,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
             >
               <List>
                 {validationResult.errors.map((error, index) => (
-                  <ListItem key={index}>
-                    <strong>{error.field}:</strong> {error.message}
-                  </ListItem>
+                  <ListItem key={index}>{error.message}</ListItem>
                 ))}
               </List>
             </ExpandableSection>
@@ -88,9 +86,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
           <ExpandableSection toggleText={t('Show warnings')} isIndented>
             <List>
               {validationResult.warnings.map((warning, index) => (
-                <ListItem key={index}>
-                  <strong>{warning.field}:</strong> {warning.message}
-                </ListItem>
+                <ListItem key={index}>{warning.message}</ListItem>
               ))}
             </List>
           </ExpandableSection>

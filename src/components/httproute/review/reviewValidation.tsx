@@ -14,7 +14,7 @@ export interface ValidationResult {
   warnings: ValidationError[];
 }
 
-// //  matches validati  detailed
+//  matches validati  detailed
 export const validateMatches = (matches: HTTPRouteMatch[]): ValidationResult => {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];

@@ -26,6 +26,7 @@ import { HTTPRouteBackendRef } from './backend-refs/backendTypes';
 import { areBackendRefsValid } from './backend-refs/backendUtils';
 import BackendReferencesWizardStep from './backend-refs/BackendActions';
 import ReviewStep from './review/ReviewStep';
+import ReviewStep, { validateCompleteRule } from './review/ReviewStep';
 
 interface HTTPRouteRuleWizardProps {
   isOpen: boolean;
@@ -86,12 +87,9 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
   const [isReviewValid, setIsReviewValid] = React.useState(true);
 
   React.useEffect(() => {
-    const hasMatches = currentRule.matches?.length > 0;
-    const hasFilters = currentRule.filters?.length > 0;
-    const hasBackendService = !!(currentRule.serviceName && currentRule.servicePort > 0);
+    const validationResult = validateCompleteRule(currentRule);
 
-    const isValid = hasMatches || hasFilters || hasBackendService;
-    setIsReviewValid(isValid);
+    setIsReviewValid(validationResult.isValid && validationResult.errors.length === 0);
   }, [currentRule.matches, currentRule.filters, currentRule.serviceName, currentRule.servicePort]);
 
   // Matches handling functions
