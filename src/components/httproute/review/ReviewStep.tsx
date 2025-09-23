@@ -9,7 +9,11 @@ import {
   Alert,
   AlertVariant,
   AlertActionLink,
+  ExpandableSection,
+  List,
+  ListItem,
 } from '@patternfly/react-core';
+import { validateCompleteRule } from './reviewValidation';
 
 interface ReviewStepProps {
   currentRule: any;
@@ -20,12 +24,16 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
   const hasMatches = currentRule.matches?.length > 0;
   const hasFilters = currentRule.filters?.length > 0;
   const hasBackendService = !!(currentRule.serviceName && currentRule.servicePort > 0);
+  const validationResult = React.useMemo(() => {
+    return validateCompleteRule(currentRule);
+  }, [currentRule]);
 
-  const isRuleValid = hasMatches || hasFilters || hasBackendService;
+  const isRuleValid = validationResult.isValid;
 
   return (
     <Form>
       <Title headingLevel="h3">{t('Review and create')}</Title>
+
       {!isRuleValid && (
         <Alert
           variant={AlertVariant.danger}
@@ -47,10 +55,45 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
           }
         >
           <p>
-            {t(
-              'This rule cannot be created until it includes at least one match, filter, or backend reference.',
-            )}
+            {validationResult.errors.length > 0
+              ? t('This rule has validation errors that must be fixed before creation.')
+              : t(
+                  'This rule cannot be created until it includes at least one match, filter, or backend reference.',
+                )}
           </p>
+          {validationResult.errors.length > 0 && (
+            <ExpandableSection
+              toggleText={t('Show detailed errors')}
+              isIndented
+              style={{ marginTop: '12px' }}
+            >
+              <List>
+                {validationResult.errors.map((error, index) => (
+                  <ListItem key={index}>
+                    <strong>{error.field}:</strong> {error.message}
+                  </ListItem>
+                ))}
+              </List>
+            </ExpandableSection>
+          )}
+        </Alert>
+      )}
+      {validationResult.warnings.length > 0 && validationResult.errors.length === 0 && (
+        <Alert
+          variant={AlertVariant.warning}
+          isInline
+          title={t('Validation warnings')}
+          style={{ marginBottom: 16 }}
+        >
+          <ExpandableSection toggleText={t('Show warnings')} isIndented>
+            <List>
+              {validationResult.warnings.map((warning, index) => (
+                <ListItem key={index}>
+                  <strong>{warning.field}:</strong> {warning.message}
+                </ListItem>
+              ))}
+            </List>
+          </ExpandableSection>
         </Alert>
       )}
 
@@ -127,3 +170,4 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
 };
 
 export default ReviewStep;
+export { validateCompleteRule };
