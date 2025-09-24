@@ -12,10 +12,11 @@ import {
   TextInput,
   FormSelect,
   FormSelectOption,
+  Alert,
 } from '@patternfly/react-core';
 import { PlusCircleIcon } from '@patternfly/react-icons';
 import { HTTPRouteBackendRef, BackendReferencesWizardStepProps, K8sService } from './backendTypes';
-import { useK8sWatchResource } from '@openshift-console/dynamic-plugin-sdk';
+import { useK8sWatchResource, useActiveNamespace } from '@openshift-console/dynamic-plugin-sdk';
 
 export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepProps> = ({
   currentRule,
@@ -23,7 +24,7 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
   t,
 }) => {
   const [activeBackendTab, setActiveBackendTab] = React.useState(0);
-
+  const [currentNamespace] = useActiveNamespace();
   const [availableServices, setAvailableServices] = React.useState<K8sService[]>([]);
 
   // Load all available Services
@@ -41,7 +42,17 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
 
   React.useEffect(() => {
     if (serviceLoaded && !serviceError && Array.isArray(serviceData)) {
-      setAvailableServices(serviceData);
+      const filteredServices = serviceData.filter((s) => {
+        const ns = s.metadata?.namespace || '';
+        return (
+          !ns.startsWith('openshift-') &&
+          ns !== 'kube-system' &&
+          ns !== 'kube-public' &&
+          ns !== 'kube-node-lease'
+        );
+      });
+
+      setAvailableServices(filteredServices);
     }
   }, [serviceData, serviceLoaded, serviceError]);
 
@@ -83,16 +94,18 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
     }
   };
 
-  const handleServiceChange = (backendIndex: number, serviceName: string) => {
-    const selectedService = availableServices.find((s) => s.metadata.name === serviceName);
+  const handleServiceChange = (backendIndex: number, serviceKey: string) => {
+    const [serviceName, serviceNamespace] = serviceKey.split(':');
+    const selectedService = availableServices.find(
+      (s) => s.metadata.name === serviceName && s.metadata.namespace === serviceNamespace,
+    );
 
     const updatedBackendRefs = [...(currentRule.backendRefs || [])];
     updatedBackendRefs[backendIndex] = {
       ...updatedBackendRefs[backendIndex],
       serviceName,
       serviceNamespace: selectedService?.metadata.namespace || '',
-      // Auto-select first available port
-      port: selectedService?.spec.ports[0]?.port || 80,
+      port: 0,
     };
 
     setCurrentRule({
@@ -101,6 +114,29 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
     });
   };
 
+  const getAvailablePortsForService = (serviceName: string, serviceNamespace: string) => {
+    if (!serviceName || !serviceNamespace) return [];
+
+    const service = availableServices.find(
+      (s) => s.metadata.name === serviceName && s.metadata.namespace === serviceNamespace,
+    );
+
+    return service?.spec.ports || [];
+  };
+
+  // Handle port selection
+  const handlePortChange = (backendIndex: number, selectedPort: number) => {
+    const updatedBackendRefs = [...(currentRule.backendRefs || [])];
+    updatedBackendRefs[backendIndex] = {
+      ...updatedBackendRefs[backendIndex],
+      port: selectedPort,
+    };
+
+    setCurrentRule({
+      ...currentRule,
+      backendRefs: updatedBackendRefs,
+    });
+  };
   return (
     <Form>
       {/* Empty state */}
@@ -205,7 +241,7 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
                         fieldId={`service-name-${index}`}
                       >
                         <FormSelect
-                          value={backendRef.serviceName}
+                          value={`${backendRef.serviceName}:${backendRef.serviceNamespace}`}
                           onChange={(_, value) => handleServiceChange(index, value)}
                           aria-label={t('Select Service')}
                         >
@@ -213,7 +249,7 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
                           {availableServices.map((service) => (
                             <FormSelectOption
                               key={`${service.metadata.name}-${service.metadata.namespace}`}
-                              value={service.metadata.name}
+                              value={`${service.metadata.name}:${service.metadata.namespace}`}
                               label={`${service.metadata.name} (${service.metadata.namespace})`}
                             />
                           ))}
@@ -226,10 +262,17 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
                           value={backendRef.serviceNamespace}
                           isDisabled={true}
                           placeholder={t('Auto-filled from selected service')}
-                          style={{
-                            border: '3px black',
-                          }}
                         />
+                        {backendRef.serviceNamespace !== currentNamespace &&
+                          backendRef.serviceName && (
+                            <Alert
+                              variant="warning"
+                              isInline
+                              isPlain
+                              title="A ReferenceGrant will be required for this backend service"
+                              style={{ marginTop: '5px' }}
+                            />
+                          )}
                       </FormGroup>
                     </div>
 
@@ -242,12 +285,27 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
                       }}
                     >
                       {/* Port */}
-                      <FormGroup label={t('Port')} fieldId={`service-port-${index}`}>
-                        <TextInput
-                          value={backendRef.port}
-                          isDisabled={true}
-                          placeholder={t('Auto-filled from selected service')}
-                        />
+                      <FormGroup label={t('Port')} isRequired fieldId={`service-port-${index}`}>
+                        <FormSelect
+                          value={backendRef.port.toString()}
+                          onChange={(_, value) => handlePortChange(index, parseInt(value))}
+                          aria-label={t('Select Port')}
+                          isDisabled={!backendRef.serviceName}
+                        >
+                          <FormSelectOption key="empty" value="" label={t('Select Port')} />
+                          {getAvailablePortsForService(
+                            backendRef.serviceName,
+                            backendRef.serviceNamespace,
+                          ).map((port) => (
+                            <FormSelectOption
+                              key={port.port}
+                              value={port.port.toString()}
+                              label={
+                                port.name ? `${port.port} (${port.name})` : port.port.toString()
+                              }
+                            />
+                          ))}
+                        </FormSelect>
                       </FormGroup>
 
                       {/* Weight */}
@@ -297,23 +355,6 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
         </div>
       )}
     </Form>
-  );
-};
-
-export const validateBackendReferencesStep = (currentRule: {
-  backendRefs?: HTTPRouteBackendRef[];
-}): boolean => {
-  const backendRefs = currentRule.backendRefs || [];
-  if (backendRefs.length === 0) {
-    return true;
-  }
-
-  return backendRefs.every(
-    (backendRef) =>
-      backendRef.serviceName &&
-      backendRef.serviceName !== '' &&
-      backendRef.port &&
-      backendRef.port > 0,
   );
 };
 

@@ -42,37 +42,8 @@ export const parseBackendRefsFromYAML = (backendRefs: any[]): HTTPRouteBackendRe
   }));
 };
 
-// export const getBackendRefSummary = (backendRef: HTTPRouteBackendRef): string => {
-//   if (!backendRef) return '';
-//
-//   const parts = [
-//     backendRef.serviceName || 'empty',
-//     `port: ${backendRef.port || 'empty'}`,
-//     `weight: ${backendRef.weight || 1}`,
-//   ];
-//
-//   return parts.join(' | ');
-// };
-
 export const areBackendRefsValid = (backendRefs: HTTPRouteBackendRef[]): boolean => {
   if (!Array.isArray(backendRefs) || backendRefs.length === 0) return true;
-
-  return backendRefs.every(
-    (backendRef) =>
-      backendRef.serviceName &&
-      backendRef.serviceName !== '' &&
-      backendRef.port &&
-      backendRef.port > 0,
-  );
-};
-
-export const validateBackendReferencesStep = (currentRule: {
-  backendRefs?: HTTPRouteBackendRef[];
-}): boolean => {
-  const backendRefs = currentRule.backendRefs || [];
-  if (backendRefs.length === 0) {
-    return true;
-  }
 
   return backendRefs.every(
     (backendRef) =>

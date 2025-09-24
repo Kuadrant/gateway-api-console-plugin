@@ -552,7 +552,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       {createView === 'form' ? (
         <PageSection hasBodyWrapper={false}>
           <Form className="co-m-pane__form">
-            <FormGroup label={t('HTTPRoute Name')} isRequired fieldId="route-name">
+            <FormGroup label={t('HTTPRoute name')} isRequired fieldId="route-name">
               <TextInput
                 isRequired
                 type="text"
