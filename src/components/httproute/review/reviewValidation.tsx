@@ -1,5 +1,3 @@
-// src/components/httproute/review/reviewValidation.tsx
-
 import { HTTPRouteMatch, HTTPRouteHeader, HTTPRouteQueryParam } from '../HTTPRouteModel';
 
 export interface ValidationError {
@@ -237,6 +235,61 @@ export const validateQueryParams = (
   };
 };
 
+export const validateBackendRefs = (backendRefs: any[]): ValidationResult => {
+  const errors: ValidationError[] = [];
+  const warnings: ValidationError[] = [];
+
+  if (!backendRefs || backendRefs.length === 0) {
+    return { isValid: true, errors, warnings };
+  }
+
+  backendRefs.forEach((ref, index) => {
+    // 1 service Name must be filled
+    if (!ref.serviceName || ref.serviceName.trim() === '') {
+      errors.push({
+        field: `backendRefs[${index}].serviceName`,
+        message: `Backend Reference ${index + 1}: Service name is required`,
+        severity: 'error',
+      });
+    }
+
+    // 2. service Namespace must be filled
+    if (!ref.serviceNamespace || ref.serviceNamespace.trim() === '') {
+      errors.push({
+        field: `backendRefs[${index}].serviceNamespace`,
+        message: `Backend Reference ${index + 1}: Service namespace is required`,
+        severity: 'error',
+      });
+    }
+
+    // 3. Port - should be > 0
+    if (!ref.port || ref.port <= 0) {
+      errors.push({
+        field: `backendRefs[${index}].port`,
+        message: `Backend Reference ${index + 1}: Valid port is required (must be > 0)`,
+        severity: 'error',
+      });
+    }
+
+    // 4. Weight - should be in diapason
+    if (!ref.weight || ref.weight < 1 || ref.weight > 1000000) {
+      errors.push({
+        field: `backendRefs[${index}].weight`,
+        message: `Backend Reference ${index + 1}: Weight must be between 1 and 1,000,000`,
+        severity: 'error',
+      });
+    }
+
+    // TODO: Cross-namespace warning
+  });
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+  };
+};
+
 // main validation function for the whole rule
 export const validateCompleteRule = (currentRule: any): ValidationResult => {
   const allErrors: ValidationError[] = [];
@@ -281,15 +334,22 @@ export const validateCompleteRule = (currentRule: any): ValidationResult => {
     }
   }
 
-  // at least 1 section validation
+  if (currentRule.backendRefs && currentRule.backendRefs.length > 0) {
+    const backendRefsValidation = validateBackendRefs(currentRule.backendRefs);
+    allErrors.push(...backendRefsValidation.errors);
+    allWarnings.push(...backendRefsValidation.warnings);
+  }
+
+  // at least 1 section
   const hasMatches = currentRule.matches?.length > 0;
   const hasFilters = currentRule.filters?.length > 0;
-  const hasBackendService = !!(currentRule.serviceName && currentRule.servicePort > 0);
+  const hasLegacyBackend = !!(currentRule.serviceName && currentRule.servicePort > 0);
+  const hasBackendRefs = currentRule.backendRefs?.length > 0;
 
-  if (!hasMatches && !hasFilters && !hasBackendService) {
+  if (!hasMatches && !hasFilters && !hasLegacyBackend && !hasBackendRefs) {
     allErrors.push({
       field: 'rule',
-      message: 'Rule must have at least one match, filter, or backend service configured',
+      message: 'Rule must have at least one match, filter, or backend reference configured',
       severity: 'error',
     });
   }
