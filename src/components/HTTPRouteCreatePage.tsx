@@ -15,8 +15,9 @@ import {
   Alert,
   Modal,
   AlertVariant,
+  Popover,
 } from '@patternfly/react-core';
-import { PlusCircleIcon, MinusCircleIcon, TrashIcon, EditIcon } from '@patternfly/react-icons';
+import { PlusCircleIcon, MinusCircleIcon, HelpIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
 import {
   ResourceYAMLEditor,
@@ -29,10 +30,20 @@ import { useLocation } from 'react-router-dom';
 import yaml from 'js-yaml';
 import GatewayApiCreateUpdate from './GatewayApiCreateUpdate';
 import ParentReferencesSelect from '../utils/ParentReferencesSelect';
-import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import {
+  ActionsColumn,
+  IAction,
+  Table,
+  TableText,
+  Tbody,
+  Td,
+  Th,
+  Thead,
+  Tr,
+} from '@patternfly/react-table';
 import { HTTPRouteResource, HTTPRouteMatch } from './httproute/HTTPRouteModel';
 import HTTPRouteRuleWizard from './httproute/HTTPRouteRuleWizard';
-
+import './css/gateway-api-plugin.css';
 const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
   if (!matches || matches.length === 0) {
     return [];
@@ -119,14 +130,140 @@ const validateMatchesInRule = (matches: HTTPRouteMatch[]): boolean => {
   );
 };
 
-const formatMatchesForDisplay = (matches: HTTPRouteMatch[]): string => {
+const formatMatchesForDisplay = (matches: any[], t: any) => {
   if (!matches || matches.length === 0) {
-    return '—';
+    return <span style={{ color: '#666' }}>—</span>;
   }
 
-  return matches
-    .map((match) => `${match.pathType} ${match.pathValue} / ${match.method}`)
-    .join(', ');
+  return (
+    <TableText>
+      <div>
+        {matches.slice(0, 3).map((match, idx) => (
+          <div key={idx} style={{ marginBottom: '4px' }}>
+            {match.pathType || 'PathPrefix'} {match.pathValue || '/'} | {match.method || 'GET'}
+          </div>
+        ))}
+        {matches.length > 3 && (
+          <Popover
+            headerContent={t('All matches')}
+            bodyContent={
+              <div>
+                {matches.slice(3).map((match, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      marginBottom: idx < matches.slice(3).length - 1 ? '4px' : '0',
+                    }}
+                  >
+                    {match.pathType || 'PathPrefix'} {match.pathValue || '/'} |{' '}
+                    {match.method || 'GET'}
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <Button variant="link" isInline style={{ padding: 0, fontSize: '14px' }}>
+              +{matches.length - 3} {t('more')}
+            </Button>
+          </Popover>
+        )}
+      </div>
+    </TableText>
+  );
+};
+
+const formatFiltersForDisplay = (filters: any[], t: any) => {
+  if (!filters || filters.length === 0) {
+    return <span style={{ color: '#666' }}>—</span>;
+  }
+
+  return (
+    <TableText>
+      <div>
+        {filters.slice(0, 3).map((filter, idx) => (
+          <div key={idx} style={{ marginBottom: '4px' }}>
+            {filter.type || 'Unknown Filter'}
+          </div>
+        ))}
+        {filters.length > 3 && (
+          <Popover
+            headerContent={t('All filters')}
+            bodyContent={
+              <div>
+                {filters.slice(3).map((filter, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      marginBottom: idx < filters.slice(3).length - 1 ? '4px' : '0',
+                    }}
+                  >
+                    {filter.type || 'Unknown Filter'}
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <Button variant="link" isInline style={{ padding: 0, fontSize: '14px' }}>
+              +{filters.length - 3} {t('more')}
+            </Button>
+          </Popover>
+        )}
+      </div>
+    </TableText>
+  );
+};
+
+const formatBackendsForDisplay = (rule: any, t: any) => {
+  if (rule.serviceName && rule.servicePort) {
+    return (
+      <TableText>
+        <div>
+          <strong>{rule.serviceName}:</strong> {rule.servicePort}
+        </div>
+      </TableText>
+    );
+  }
+
+  if (!rule.backendRefs || rule.backendRefs.length === 0) {
+    return <span style={{ color: '#666' }}>—</span>;
+  }
+
+  return (
+    <TableText>
+      <div>
+        {rule.backendRefs.slice(0, 3).map((ref: any, idx: number) => (
+          <div key={idx} style={{ marginBottom: '4px' }}>
+            <strong>{ref.serviceName}:</strong> {ref.port}
+            {ref.weight !== 1 && ` (weight: ${ref.weight})`}
+          </div>
+        ))}
+        {rule.backendRefs.length > 3 && (
+          <Popover
+            headerContent={t('All backend references')}
+            bodyContent={
+              <div>
+                {rule.backendRefs.slice(3).map((ref: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      marginBottom: idx < rule.backendRefs.slice(3).length - 1 ? '4px' : '0',
+                    }}
+                  >
+                    <strong>{ref.serviceName}:</strong> {ref.port}
+                    {ref.weight !== 1 && ` (weight: ${ref.weight})`}
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <Button variant="link" isInline style={{ padding: 0, fontSize: '14px' }}>
+              +{rule.backendRefs.length - 3} {t('more')}
+            </Button>
+          </Popover>
+        )}
+      </div>
+    </TableText>
+  );
 };
 
 interface ParentReference {
@@ -408,40 +545,34 @@ const HTTPRouteCreatePage: React.FC = () => {
   return (
     <>
       <Helmet>
-        <title data-test="example-page-title">
-          {isEdit ? t('Edit HTTPRoute') : t('Create HTTPRoute')}
-        </title>
+        <title data-test="example-page-title">{t('Edit Gateway')}</title>
       </Helmet>
-      <PageSection hasBodyWrapper={false} className="pf-m-no-padding">
+      <PageSection hasBodyWrapper={false}>
         <div className="co-m-nav-title">
-          <Title headingLevel="h1">{isEdit ? t('Edit HTTPRoute') : t('Create HTTPRoute')}</Title>
+          <Title headingLevel="h1">{t('Create HTTPRoute')}</Title>
           <p className="help-block co-m-pane__heading-help-text">
-            <div>{t('HTTPRoute provides a way to route HTTP requests to backends.')}</div>
+            <div>
+              {t('Create an HTTPRoute to route traffic from the Gateway to backend services.')}
+            </div>
           </p>
         </div>
-        <FormGroup
-          className="kuadrant-editor-toggle"
-          role="radiogroup"
-          isInline
-          hasNoPaddingTop
-          fieldId="create-type-radio-group"
-          label={t('Create via:')}
-        >
+        <div className="gateway-editor-toggle">
+          <span>Create via:</span>
           <Radio
             name="create-type-radio"
-            label={t('Form')}
+            label="Form"
             id="create-type-radio-form"
             isChecked={createView === 'form'}
             onChange={() => setCreateView('form')}
           />
           <Radio
             name="create-type-radio"
-            label={t('YAML')}
+            label="YAML"
             id="create-type-radio-yaml"
             isChecked={createView === 'yaml'}
             onChange={() => setCreateView('yaml')}
           />
-        </FormGroup>
+        </div>
       </PageSection>
 
       {createView === 'form' ? (
@@ -460,18 +591,40 @@ const HTTPRouteCreatePage: React.FC = () => {
               />
               <FormHelperText>
                 <HelperText>
-                  <HelperTextItem>{t('Unique name of the HTTPRoute')}</HelperTextItem>
+                  <HelperTextItem>
+                    {t(
+                      "The HTTPRoute name must be unique within the namespace and conform to DNS-1123 label standards (lowercase alphanumeric characters or '-').",
+                    )}
+                  </HelperTextItem>
                 </HelperText>
               </FormHelperText>
             </FormGroup>
 
-            <ParentReferencesSelect
-              parentRefs={parentRefs}
-              onChange={setParentRefs}
-              isDisabled={formDisabled}
-            />
-
-            <FormGroup label={t('Hostnames')} fieldId="hostnames">
+            <FormGroup
+              label={
+                <span>
+                  {t('Hostnames')}{' '}
+                  <Popover
+                    headerContent={t('Hostname')}
+                    bodyContent={
+                      <div>
+                        <p>{t('Matches traffic for these hostnames.')}</p>
+                        <ul>
+                          <li>{t('Supports wildcards (e.g., *.example.com).')}</li>
+                          <li>{t('Inherits from parent listener if empty.')}</li>
+                        </ul>
+                      </div>
+                    }
+                    aria-label={t('Hostnames help')}
+                  >
+                    <Button variant="plain" aria-label={t('Hostnames help')}>
+                      <HelpIcon />
+                    </Button>
+                  </Popover>
+                </span>
+              }
+              fieldId="hostnames"
+            >
               {hostnames.map((hostname, index) => (
                 <div
                   key={index}
@@ -507,12 +660,13 @@ const HTTPRouteCreatePage: React.FC = () => {
                   {t('Add hostname')}
                 </Button>
               )}
-              <FormHelperText>
-                <HelperText>
-                  <HelperTextItem>{t('Hostnames for this HTTPRoute')}</HelperTextItem>
-                </HelperText>
-              </FormHelperText>
             </FormGroup>
+
+            <ParentReferencesSelect
+              parentRefs={parentRefs}
+              onChange={setParentRefs}
+              isDisabled={formDisabled}
+            />
             <FormGroup
               label={
                 <div
@@ -523,7 +677,27 @@ const HTTPRouteCreatePage: React.FC = () => {
                     width: '100%',
                   }}
                 >
-                  <div>{t('Rules')}</div>
+                  <div>
+                    {t('Rules')} <span style={{ color: 'red' }}>*</span>
+                    <Popover
+                      headerContent={t('Rules')}
+                      bodyContent={
+                        <div>
+                          <p>{t('Rules are used for matching and processing requests. ')}</p>
+                          <ul>
+                            <li>{t('Requests are evaluated against rules in order.')}</li>
+                            <li>{t('The first rule that matches is used.')}</li>
+                          </ul>
+                        </div>
+                      }
+                      aria-label={t('Rules help')}
+                    >
+                      <Button variant="plain" aria-label={t('Rules help')}>
+                        <HelpIcon />
+                      </Button>
+                    </Popover>
+                  </div>
+
                   <Button variant="secondary" icon={<PlusCircleIcon />} onClick={handleAddRule}>
                     {t('Add rule')}
                   </Button>
@@ -540,75 +714,60 @@ const HTTPRouteCreatePage: React.FC = () => {
               )}
 
               {rules.length > 0 && (
-                <Table aria-label={t('Rules table')} variant="compact" borders={false}>
-                  <Thead>
-                    <Tr>
-                      <Th width={15}>{t('Rule ID')}</Th>
-                      <Th width={25}>{t('Matches')}</Th>
-                      <Th width={20}>{t('Filters')}</Th>
-                      <Th width={30}>{t('Backend references')}</Th>
-                      <Th width={10}>{t('Actions')}</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {rules.map((rule, index) => (
-                      <Tr key={index}>
-                        <Td dataLabel={t('Rule ID')}>
-                          <strong>{rule.id}</strong>
-                        </Td>
-                        <Td dataLabel={t('Matches')}>
-                          <span style={{ color: rule.matches?.length > 0 ? 'inherit' : '#666' }}>
-                            {formatMatchesForDisplay(rule.matches)}
-                          </span>
-                        </Td>
-                        <Td dataLabel={t('Filters')}>
-                          {rule.filters && rule.filters.length > 0 ? (
-                            <div>
-                              {rule.filters.map((filter: any, idx: number) => (
-                                <div key={idx}>{filter}</div>
-                              ))}
-                            </div>
-                          ) : (
-                            <span style={{ color: '#666' }}>—</span>
-                          )}
-                        </Td>
-                        <Td dataLabel={t('Backend references')}>
-                          <div>
-                            <strong>{rule.serviceName}:</strong> {rule.servicePort}
-                          </div>
-                        </Td>
-                        <Td dataLabel={t('Actions')}>
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            <Button
-                              variant="plain"
-                              onClick={() => handleEditRule(index)}
-                              aria-label={t('Edit rule')}
-                            >
-                              <EditIcon />
-                            </Button>
-                            <Button
-                              variant="plain"
-                              onClick={() => handleRemoveRule(index)}
-                              isDanger
-                              aria-label={t('Delete rule')}
-                            >
-                              <TrashIcon />
-                            </Button>
-                          </div>
-                        </Td>
+                <div className="rules-table-wrapper">
+                  <Table aria-label={t('Rules table')} variant="compact" borders={true}>
+                    <Thead>
+                      <Tr>
+                        <Th>{t('Rule ID')}</Th>
+                        <Th>{t('Matches')}</Th>
+                        <Th>{t('Filters')}</Th>
+                        <Th>{t('Backend References')}</Th>
+                        <Th screenReaderText="Actions" />
                       </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              )}
+                    </Thead>
+                    <Tbody>
+                      {rules.map((rule, index) => {
+                        // actions for each rule
+                        const ruleActions: IAction[] = [
+                          {
+                            title: t('Edit'),
+                            onClick: () => handleEditRule(index),
+                          },
+                          {
+                            isSeparator: true,
+                          },
+                          {
+                            title: t('Delete'),
+                            onClick: () => handleRemoveRule(index),
+                          },
+                        ];
 
-              <FormHelperText>
-                <HelperText>
-                  <HelperTextItem>
-                    {t('Rules define how to route HTTP requests to backend services')}
-                  </HelperTextItem>
-                </HelperText>
-              </FormHelperText>
+                        return (
+                          <Tr key={index}>
+                            <Td dataLabel={t('Rule ID')}>
+                              <TableText>
+                                <strong>{rule.id}</strong>
+                              </TableText>
+                            </Td>
+                            <Td dataLabel={t('Matches')}>
+                              {formatMatchesForDisplay(rule.matches, t)}
+                            </Td>
+                            <Td dataLabel={t('Filters')}>
+                              {formatFiltersForDisplay(rule.filters, t)}
+                            </Td>
+                            <Td dataLabel={t('Backend References')}>
+                              {formatBackendsForDisplay(rule, t)}
+                            </Td>
+                            <Td isActionCell>
+                              <ActionsColumn items={ruleActions} />
+                            </Td>
+                          </Tr>
+                        );
+                      })}
+                    </Tbody>
+                  </Table>
+                </div>
+              )}
             </FormGroup>
 
             <GatewayApiCreateUpdate

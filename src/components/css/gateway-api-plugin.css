@@ -14,3 +14,30 @@
 .gateway-editor-toggle .pf-v6-c-radio {
   padding: 0 0 0 0.5rem;
 }
+
+.rules-table-wrapper {
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  overflow: hidden;
+}
+
+.rules-table-wrapper .pf-v6-c-table {
+  border: none;
+}
+
+.rules-table-wrapper .pf-v6-c-table thead tr:first-child th:first-child {
+  border-top-left-radius: var(--pf-t--global--border--radius--medium);
+}
+
+.rules-table-wrapper .pf-v6-c-table thead tr:first-child th:last-child {
+  border-top-right-radius: var(--pf-t--global--border--radius--medium);
+}
+
+.rules-table-wrapper .pf-v6-c-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: var(--pf-t--global--border--radius--medium);
+}
+
+.rules-table-wrapper .pf-v6-c-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: var(--pf-t--global--border--radius--medium);
+}
+
