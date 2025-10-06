@@ -12,7 +12,6 @@ import {
   TabTitleText,
   TabContent,
   TabContentBody,
-  Tooltip,
   ExpandableSection,
   FormHelperText,
   HelperText,
@@ -23,6 +22,9 @@ import {
 } from '@patternfly/react-core';
 import { PlusCircleIcon, MinusCircleIcon } from '@patternfly/react-icons';
 import { HTTPRouteMatch, HTTPRouteHeader, HTTPRouteQueryParam } from './HTTPRouteModel';
+import FilterActions from './filters/FilterActions';
+import { HTTPRouteFilter } from './filters/filterTypes';
+import { validateFiltersStep } from './filters/filterUtils';
 
 interface HTTPRouteRuleWizardProps {
   isOpen: boolean;
@@ -31,11 +33,17 @@ interface HTTPRouteRuleWizardProps {
   currentRule: {
     id: string;
     matches: HTTPRouteMatch[];
-    filters: any[];
+    filters: HTTPRouteFilter[];
     serviceName: string;
     servicePort: number;
   };
-  setCurrentRule: (rule: any) => void;
+  setCurrentRule: (rule: {
+    id: string;
+    matches: HTTPRouteMatch[];
+    filters: HTTPRouteFilter[];
+    serviceName: string;
+    servicePort: number;
+  }) => void;
   editingRuleIndex: number | null;
   t: (key: string) => string;
 }
@@ -60,10 +68,15 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 }) => {
   const [activeMatchTab, setActiveMatchTab] = React.useState(0);
   const [isMatchesValid, setIsMatchesValid] = React.useState(true);
+  const [isFiltersValid, setIsFiltersValid] = React.useState(true);
 
   React.useEffect(() => {
     setIsMatchesValid(validateMatchesStep(currentRule));
   }, [currentRule.matches]);
+
+  React.useEffect(() => {
+    setIsFiltersValid(validateFiltersStep(currentRule.filters || []));
+  }, [currentRule.filters]);
 
   // Matches handling functions
   const handleAddMatch = () => {
@@ -86,7 +99,10 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
     setActiveMatchTab(updatedMatches.length - 1);
   };
 
-  const handleMatchTabSelect = (_event: any, tabIndex: number) => {
+  const handleMatchTabSelect = (
+    _event: React.MouseEvent<HTMLElement> | React.KeyboardEvent | unknown,
+    tabIndex: number,
+  ) => {
     setActiveMatchTab(tabIndex);
   };
 
@@ -248,28 +264,19 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                 </p>
               </div>
 
-              <Tabs
-                activeKey={activeMatchTab}
-                onSelect={handleMatchTabSelect}
-                onAdd={handleAddMatch}
-              >
+              <Tabs activeKey={activeMatchTab} onSelect={handleMatchTabSelect}>
                 {currentRule.matches.map((match, index) => (
                   <Tab
                     key={match.id}
                     eventKey={index}
                     title={
-                      <Tooltip
-                        position="top"
-                        content={
-                          <div>
-                            {match.pathType || 'empty'} {t('    |    ')}{' '}
-                            {match.pathValue || 'empty'}
-                            {t('  |  ')} {match.method || 'empty'}
-                          </div>
-                        }
+                      <span
+                        title={`${match.pathType || 'empty'} | ${match.pathValue || 'empty'} | ${
+                          match.method || 'empty'
+                        }`}
                       >
                         <TabTitleText>Match-{index + 1}</TabTitleText>
-                      </Tooltip>
+                      </span>
                     }
                     tabContentId={`match-content-${index}`}
                   />
@@ -278,13 +285,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 
               {/* Tab Contents */}
               {currentRule.matches.map((match, index) => (
-                <TabContent
-                  key={match.id}
-                  eventKey={index}
-                  id={`match-content-${index}`}
-                  activeKey={activeMatchTab}
-                  hidden={index !== activeMatchTab}
-                >
+                <TabContent key={match.id} eventKey={index} id={`match-content-${index}`}>
                   <TabContentBody style={{ padding: '16px 0' }}>
                     <div
                       style={{
@@ -294,21 +295,22 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                       }}
                     >
                       <div style={{ flex: 1 }}>
-                        {
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'flex-end',
-                              marginBottom: '16px',
-                            }}
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            marginBottom: '16px',
+                          }}
+                        >
+                          <Button
+                            variant="secondary"
+                            onClick={() => handleRemoveMatch(index)}
+                            aria-label={t('Delete match')}
+                            title={t('Delete it permanently')}
                           >
-                            <Tooltip position={'left'} content={<div>Delete it permanently</div>}>
-                              <Button variant="secondary" onClick={() => handleRemoveMatch(index)}>
-                                {t('Delete')}
-                              </Button>
-                            </Tooltip>
-                          </div>
-                        }
+                            {t('Delete')}
+                          </Button>
+                        </div>
                         <div
                           style={{
                             display: 'grid',
@@ -323,6 +325,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             fieldId={`path-type-${index}`}
                           >
                             <FormSelect
+                              id={`path-type-${index}`}
                               value={match.pathType}
                               onChange={(_, value) => {
                                 const updatedMatches = [...currentRule.matches];
@@ -343,15 +346,21 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 
                           <FormGroup label={t('Path value')} fieldId={`path-value-${index}`}>
                             <TextInput
+                              id={`path-value-${index}`}
                               value={match.pathValue}
                               onChange={(_, value) => {
-                                value = '/' + value.replace(/^\/+/, '');
+                                let newValue = value;
+                                if (match.pathType !== 'RegularExpression') {
+                                  newValue = '/' + value.replace(/^\/+/, '');
+                                }
 
                                 const updatedMatches = [...currentRule.matches];
-                                updatedMatches[index] = { ...match, pathValue: value };
+                                updatedMatches[index] = { ...match, pathValue: newValue };
                                 setCurrentRule({ ...currentRule, matches: updatedMatches });
                               }}
-                              placeholder="/products"
+                              placeholder={
+                                match.pathType === 'RegularExpression' ? '' : '/products'
+                              }
                             />
                           </FormGroup>
                         </div>
@@ -362,6 +371,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             fieldId={`http-method-${index}`}
                           >
                             <FormSelect
+                              id={`http-method-${index}`}
                               value={match.method}
                               onChange={(_, value) => {
                                 const updatedMatches = [...currentRule.matches];
@@ -419,6 +429,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             <FormSelectOption value="RegularExpression" label="RegularExpression" />
                           </FormSelect>
                           <TextInput
+                            id={`header-name-${header.id}`}
                             type="text"
                             placeholder={t('Header name')}
                             value={header.name}
@@ -427,6 +438,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             }
                           />
                           <TextInput
+                            id={`header-value-${header.id}`}
                             type="text"
                             placeholder={t('Header value')}
                             value={header.value}
@@ -489,6 +501,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             <FormSelectOption value="RegularExpression" label="RegularExpression" />
                           </FormSelect>
                           <TextInput
+                            id={`qp-name-${queryParam.id}`}
                             type="text"
                             placeholder={t('Query param name')}
                             value={queryParam.name}
@@ -497,6 +510,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                             }
                           />
                           <TextInput
+                            id={`qp-value-${queryParam.id}`}
                             type="text"
                             placeholder={t('Query param value')}
                             value={queryParam.value}
@@ -531,12 +545,23 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
       ),
     },
     {
+      name: t('Filters'),
+      nextButtonText: t('Next'),
+      form: (
+        <FilterActions
+          filters={currentRule.filters || []}
+          onChange={(filters) => setCurrentRule({ ...currentRule, filters })}
+        />
+      ),
+    },
+    {
       name: t('Backend Services'),
       nextButtonText: t('Create'),
       form: (
         <Form>
           <FormGroup label={t('Rule ID')} isRequired fieldId="rule-id">
             <TextInput
+              id="rule-id"
               value={currentRule.id}
               onChange={(_, value) => setCurrentRule({ ...currentRule, id: value })}
               placeholder="rule-abc123"
@@ -550,6 +575,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 
           <FormGroup label={t('Service Name')} isRequired fieldId="service-name">
             <TextInput
+              id="service-name"
               value={currentRule.serviceName}
               onChange={(_, value) => setCurrentRule({ ...currentRule, serviceName: value })}
               placeholder="service-a"
@@ -559,6 +585,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
           <FormGroup label={t('Service Port')} isRequired fieldId="service-port">
             <TextInput
               type="number"
+              id="service-port"
               value={currentRule.servicePort.toString()}
               onChange={(_, value) =>
                 setCurrentRule({ ...currentRule, servicePort: parseInt(value) || 80 })
@@ -601,6 +628,10 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
             ...(index === 0
               ? {
                   isNextDisabled: !isMatchesValid,
+                }
+              : index === 1
+              ? {
+                  isNextDisabled: !isFiltersValid,
                 }
               : {}),
           }}

@@ -260,7 +260,7 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
           {t('Parent references')} <span style={{ color: 'red' }}>*</span>
         </span>
       }
-      fieldId="parent-references"
+      fieldId={parentRefs[0] ? `gateway-name-${parentRefs[0].id}` : 'parent-references'}
     >
       {!hasValidParentRef && (
         <Alert
@@ -328,6 +328,7 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
                   fieldId={`gateway-name-${parentRef.id}`}
                 >
                   <FormSelect
+                    id={`gateway-name-${parentRef.id}`}
                     value={parentRef.gatewayName}
                     onChange={(_, value) =>
                       updateParentReference(parentRef.id, 'gatewayName', value)
@@ -370,6 +371,7 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <FormGroup label={t('Section name')} fieldId={`section-name-${parentRef.id}`}>
                   <FormSelect
+                    id={`section-name-${parentRef.id}`}
                     value={parentRef.sectionName}
                     onChange={(_, value) =>
                       updateParentReference(parentRef.id, 'sectionName', value)
