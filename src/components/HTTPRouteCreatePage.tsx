@@ -48,6 +48,7 @@ import {
   generateBackendRefsForYAML,
   parseBackendRefsFromYAML,
 } from './httproute/backend-refs/backendUtils';
+import { HTTPRouteBackendRef } from './httproute/backend-refs/backendTypes';
 
 const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
   if (!matches || matches.length === 0) {
@@ -205,8 +206,7 @@ const HTTPRouteCreatePage: React.FC = () => {
     id: string;
     matches: HTTPRouteMatch[];
     filters: ReturnType<typeof parseFiltersFromYAML>;
-    serviceName: string;
-    servicePort: number;
+    backendRefs: HTTPRouteBackendRef[];
   };
   const [rules, setRules] = React.useState<RuleUI[]>([]);
   const [isRuleModalOpen, setIsRuleModalOpen] = React.useState(false);
@@ -277,7 +277,8 @@ const HTTPRouteCreatePage: React.FC = () => {
         rules: rules.map((rule) => ({
           ...(rule.matches.length > 0 ? { matches: generateMatchesForYAML(rule.matches) } : {}),
           ...(rule.filters && rule.filters.length > 0
-            ? { filters: generateFiltersForYAML(rule.filters) }...(rule.filters && rule.filters.length > 0 ? { filters: rule.filters } : {}),
+            ? { filters: generateFiltersForYAML(rule.filters) }
+            : {}),
           ...(rule.backendRefs && rule.backendRefs.length > 0
             ? { backendRefs: generateBackendRefsForYAML(rule.backendRefs) }
             : {}),
@@ -317,9 +318,6 @@ const HTTPRouteCreatePage: React.FC = () => {
           id: rules[index]?.id || `rule-${index + 1}`,
           matches: parseMatchesFromYAML(rule.matches),
           filters: parseFiltersFromYAML(rule.filters),
-          serviceName: rule.backendRefs?.[0]?.name || '',
-          servicePort: rule.backendRefs?.[0]?.port || 80,
-          filters: rule.filters || [],
           backendRefs: parseBackendRefsFromYAML(rule.backendRefs || []),
         }));
         if (JSON.stringify(formattedRules) !== JSON.stringify(rules)) setRules(formattedRules);
@@ -501,7 +499,11 @@ const HTTPRouteCreatePage: React.FC = () => {
 
   const handleEditRule = (index: number) => {
     setEditingRuleIndex(index); // Edit mode
-    setCurrentRule({ ...rules[index], filters: rules[index].filters || [] }); // Load data into form
+    setCurrentRule({
+      ...rules[index],
+      filters: rules[index].filters || [],
+      backendRefs: rules[index].backendRefs || [],
+    }); // Load data into form
     setIsRuleModalOpen(true); // Open modal
   };
 
@@ -681,9 +683,18 @@ const HTTPRouteCreatePage: React.FC = () => {
                           )}
                         </Td>
                         <Td dataLabel={t('Backend references')}>
-                          <div>
-                            <strong>{rule.serviceName}:</strong> {rule.servicePort}
-                          </div>
+                          {rule.backendRefs && rule.backendRefs.length > 0 ? (
+                            <div>
+                              {rule.backendRefs.map((ref, idx: number) => (
+                                <div key={idx}>
+                                  <strong>{ref.serviceName}:</strong> {ref.port}
+                                  {ref.weight !== 1 && ` (weight: ${ref.weight})`}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#666' }}>—</span>
+                          )}
                         </Td>
                         <Td dataLabel={t('Actions')}>
                           <div style={{ display: 'flex', gap: '4px' }}>
