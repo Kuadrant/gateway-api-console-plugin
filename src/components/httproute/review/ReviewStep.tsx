@@ -155,7 +155,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
               <div>
                 {currentRule.backendRefs.map((backend, index) => (
                   <div key={index} style={{ marginBottom: '4px' }}>
-                    {backend.serviceName}:{backend.servicePort}
+                    {backend.serviceName}:{backend.port}
                   </div>
                 ))}
               </div>
