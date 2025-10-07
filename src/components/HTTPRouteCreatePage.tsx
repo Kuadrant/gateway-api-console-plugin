@@ -49,6 +49,7 @@ import {
   parseBackendRefsFromYAML,
 } from './httproute/backend-refs/backendUtils';
 import { HTTPRouteBackendRef } from './httproute/backend-refs/backendTypes';
+import { validateCompleteRule } from './httproute/review/reviewValidation';
 
 const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
   if (!matches || matches.length === 0) {
@@ -428,8 +429,9 @@ const HTTPRouteCreatePage: React.FC = () => {
         const basicFieldsValid = rule.id;
         const backendRefsValid = areBackendRefsValid(rule.backendRefs || []);
         const matchesValid = validateMatchesInRule(rule.matches);
+        const reviewValid = validateCompleteRule(rule).isValid;
 
-        return basicFieldsValid && matchesValid && backendRefsValid;
+        return basicFieldsValid && matchesValid && backendRefsValid && reviewValid;
       });
 
     return !!(routeName && hasValidParentRef && hasValidRules);

@@ -26,7 +26,7 @@ import { HTTPRouteBackendRef } from './backend-refs/backendTypes';
 import { areBackendRefsValid } from './backend-refs/backendUtils';
 import BackendReferencesWizardStep from './backend-refs/BackendActions';
 import ReviewStep from './review/ReviewStep';
-import ReviewStep, { validateCompleteRule } from './review/ReviewStep';
+import { validateCompleteRule } from './review/reviewValidation';
 
 interface HTTPRouteRuleWizardProps {
   isOpen: boolean;
@@ -90,7 +90,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
     const validationResult = validateCompleteRule(currentRule);
 
     setIsReviewValid(validationResult.isValid && validationResult.errors.length === 0);
-  }, [currentRule.matches, currentRule.filters, currentRule.serviceName, currentRule.servicePort]);
+  }, [currentRule.matches, currentRule.filters, currentRule.backendRefs]);
 
   // Matches handling functions
   const handleAddMatch = () => {
@@ -278,7 +278,11 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                 </p>
               </div>
 
-              <Tabs activeKey={activeMatchTab} onSelect={handleMatchTabSelect}>
+              <Tabs
+                activeKey={activeMatchTab}
+                onSelect={handleMatchTabSelect}
+                onAdd={handleAddMatch}
+              >
                 {currentRule.matches.map((match, index) => (
                   <Tab
                     key={match.id}
@@ -299,7 +303,13 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
 
               {/* Tab Contents */}
               {currentRule.matches.map((match, index) => (
-                <TabContent key={match.id} eventKey={index} id={`match-content-${index}`}>
+                <TabContent
+                  key={match.id}
+                  eventKey={index}
+                  id={`match-content-${index}`}
+                  activeKey={activeMatchTab}
+                  hidden={index !== activeMatchTab}
+                >
                   <TabContentBody style={{ padding: '16px 0' }}>
                     <div
                       style={{

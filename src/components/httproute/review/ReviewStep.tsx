@@ -23,7 +23,7 @@ interface ReviewStepProps {
 const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
   const hasMatches = currentRule.matches?.length > 0;
   const hasFilters = currentRule.filters?.length > 0;
-  const hasBackendService = !!(currentRule.serviceName && currentRule.servicePort > 0);
+  const hasBackendRefs = currentRule.backendRefs?.length > 0;
   const validationResult = React.useMemo(() => {
     return validateCompleteRule(currentRule);
   }, [currentRule]);
@@ -151,9 +151,13 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
         <DescriptionListGroup>
           <DescriptionListTerm>{t('Backend Service')}</DescriptionListTerm>
           <DescriptionListDescription>
-            {hasBackendService ? (
+            {hasBackendRefs ? (
               <div>
-                {currentRule.serviceName}:{currentRule.servicePort}
+                {currentRule.backendRefs.map((backend, index) => (
+                  <div key={index} style={{ marginBottom: '4px' }}>
+                    {backend.serviceName}:{backend.servicePort}
+                  </div>
+                ))}
               </div>
             ) : (
               <span style={{ color: '#666' }}>—</span>
@@ -166,4 +170,3 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
 };
 
 export default ReviewStep;
-export { validateCompleteRule };
