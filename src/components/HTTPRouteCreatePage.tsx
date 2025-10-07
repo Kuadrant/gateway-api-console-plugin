@@ -43,6 +43,12 @@ import {
   getFilterSummary,
 } from './httproute/filters/filterUtils';
 import HTTPRouteRuleWizard from './httproute/HTTPRouteRuleWizard';
+import {
+  areBackendRefsValid,
+  generateBackendRefsForYAML,
+  parseBackendRefsFromYAML,
+} from './httproute/backend-refs/backendUtils';
+import { HTTPRouteBackendRef } from './httproute/backend-refs/backendTypes';
 
 const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
   if (!matches || matches.length === 0) {
@@ -200,8 +206,7 @@ const HTTPRouteCreatePage: React.FC = () => {
     id: string;
     matches: HTTPRouteMatch[];
     filters: ReturnType<typeof parseFiltersFromYAML>;
-    serviceName: string;
-    servicePort: number;
+    backendRefs: HTTPRouteBackendRef[];
   };
   const [rules, setRules] = React.useState<RuleUI[]>([]);
   const [isRuleModalOpen, setIsRuleModalOpen] = React.useState(false);
@@ -210,8 +215,7 @@ const HTTPRouteCreatePage: React.FC = () => {
     id: 'rule-1',
     matches: [], // Array of match objects
     filters: [], // Filters array
-    serviceName: '', // Backend service name
-    servicePort: 80, // Backend service port
+    backendRefs: [],
   });
 
   const [editingRuleIndex, setEditingRuleIndex] = React.useState<number | null>(null);
@@ -275,12 +279,9 @@ const HTTPRouteCreatePage: React.FC = () => {
           ...(rule.filters && rule.filters.length > 0
             ? { filters: generateFiltersForYAML(rule.filters) }
             : {}),
-          backendRefs: [
-            {
-              name: rule.serviceName,
-              port: rule.servicePort,
-            },
-          ],
+          ...(rule.backendRefs && rule.backendRefs.length > 0
+            ? { backendRefs: generateBackendRefsForYAML(rule.backendRefs) }
+            : {}),
         })),
       },
     };
@@ -317,8 +318,7 @@ const HTTPRouteCreatePage: React.FC = () => {
           id: rules[index]?.id || `rule-${index + 1}`,
           matches: parseMatchesFromYAML(rule.matches),
           filters: parseFiltersFromYAML(rule.filters),
-          serviceName: rule.backendRefs?.[0]?.name || '',
-          servicePort: rule.backendRefs?.[0]?.port || 80,
+          backendRefs: parseBackendRefsFromYAML(rule.backendRefs || []),
         }));
         if (JSON.stringify(formattedRules) !== JSON.stringify(rules)) setRules(formattedRules);
       }
@@ -425,11 +425,11 @@ const HTTPRouteCreatePage: React.FC = () => {
     const hasValidRules =
       rules.length > 0 &&
       rules.every((rule) => {
-        const basicFieldsValid = rule.id && rule.serviceName && rule.servicePort > 0;
-
+        const basicFieldsValid = rule.id;
+        const backendRefsValid = areBackendRefsValid(rule.backendRefs || []);
         const matchesValid = validateMatchesInRule(rule.matches);
 
-        return basicFieldsValid && matchesValid;
+        return basicFieldsValid && matchesValid && backendRefsValid;
       });
 
     return !!(routeName && hasValidParentRef && hasValidRules);
@@ -473,8 +473,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       id: `rule-${Date.now().toString(36)}`,
       matches: [],
       filters: [],
-      serviceName: '',
-      servicePort: 80,
+      backendRefs: [],
     });
     setIsRuleModalOpen(true);
   };
@@ -500,7 +499,11 @@ const HTTPRouteCreatePage: React.FC = () => {
 
   const handleEditRule = (index: number) => {
     setEditingRuleIndex(index); // Edit mode
-    setCurrentRule({ ...rules[index], filters: rules[index].filters || [] }); // Load data into form
+    setCurrentRule({
+      ...rules[index],
+      filters: rules[index].filters || [],
+      backendRefs: rules[index].backendRefs || [],
+    }); // Load data into form
     setIsRuleModalOpen(true); // Open modal
   };
 
@@ -551,7 +554,7 @@ const HTTPRouteCreatePage: React.FC = () => {
       {createView === 'form' ? (
         <PageSection hasBodyWrapper={false}>
           <Form className="co-m-pane__form">
-            <FormGroup label={t('HTTPRoute Name')} isRequired fieldId="route-name">
+            <FormGroup label={t('HTTPRoute name')} isRequired fieldId="route-name">
               <TextInput
                 isRequired
                 type="text"
@@ -646,7 +649,7 @@ const HTTPRouteCreatePage: React.FC = () => {
                 />
               )}
 
-              {rules.length > 0 && !isRuleModalOpen && (
+              {rules.length > 0 && (
                 <Table aria-label={t('Rules table')} variant="compact" borders={false}>
                   <Thead>
                     <Tr>
@@ -680,9 +683,18 @@ const HTTPRouteCreatePage: React.FC = () => {
                           )}
                         </Td>
                         <Td dataLabel={t('Backend references')}>
-                          <div>
-                            <strong>{rule.serviceName}:</strong> {rule.servicePort}
-                          </div>
+                          {rule.backendRefs && rule.backendRefs.length > 0 ? (
+                            <div>
+                              {rule.backendRefs.map((ref, idx: number) => (
+                                <div key={idx}>
+                                  <strong>{ref.serviceName}:</strong> {ref.port}
+                                  {ref.weight !== 1 && ` (weight: ${ref.weight})`}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#666' }}>—</span>
+                          )}
                         </Td>
                         <Td dataLabel={t('Actions')}>
                           <div style={{ display: 'flex', gap: '4px' }}>

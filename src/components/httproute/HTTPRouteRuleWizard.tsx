@@ -13,9 +13,6 @@ import {
   TabContent,
   TabContentBody,
   ExpandableSection,
-  FormHelperText,
-  HelperText,
-  HelperTextItem,
   Wizard,
   WizardStep,
   WizardHeader,
@@ -25,6 +22,9 @@ import { HTTPRouteMatch, HTTPRouteHeader, HTTPRouteQueryParam } from './HTTPRout
 import FilterActions from './filters/FilterActions';
 import { HTTPRouteFilter } from './filters/filterTypes';
 import { validateFiltersStep } from './filters/filterUtils';
+import { HTTPRouteBackendRef } from './backend-refs/backendTypes';
+import { areBackendRefsValid } from './backend-refs/backendUtils';
+import BackendReferencesWizardStep from './backend-refs/BackendActions';
 
 interface HTTPRouteRuleWizardProps {
   isOpen: boolean;
@@ -34,15 +34,13 @@ interface HTTPRouteRuleWizardProps {
     id: string;
     matches: HTTPRouteMatch[];
     filters: HTTPRouteFilter[];
-    serviceName: string;
-    servicePort: number;
+    backendRefs: HTTPRouteBackendRef[];
   };
   setCurrentRule: (rule: {
     id: string;
     matches: HTTPRouteMatch[];
     filters: HTTPRouteFilter[];
-    serviceName: string;
-    servicePort: number;
+    backendRefs: HTTPRouteBackendRef[];
   }) => void;
   editingRuleIndex: number | null;
   t: (key: string) => string;
@@ -77,6 +75,12 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
   React.useEffect(() => {
     setIsFiltersValid(validateFiltersStep(currentRule.filters || []));
   }, [currentRule.filters]);
+
+  const [isBackendRefsValid, setIsBackendRefsValid] = React.useState(true);
+
+  React.useEffect(() => {
+    setIsBackendRefsValid(areBackendRefsValid(currentRule.backendRefs || []));
+  }, [currentRule.backendRefs]);
 
   // Matches handling functions
   const handleAddMatch = () => {
@@ -555,45 +559,14 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
       ),
     },
     {
-      name: t('Backend Services'),
-      nextButtonText: t('Create'),
+      name: t('Backend References'),
+      nextButtonText: t('Next'),
       form: (
-        <Form>
-          <FormGroup label={t('Rule ID')} isRequired fieldId="rule-id">
-            <TextInput
-              id="rule-id"
-              value={currentRule.id}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, id: value })}
-              placeholder="rule-abc123"
-            />
-            <FormHelperText>
-              <HelperText>
-                <HelperTextItem>{t('Unique identifier for this rule')}</HelperTextItem>
-              </HelperText>
-            </FormHelperText>
-          </FormGroup>
-
-          <FormGroup label={t('Service Name')} isRequired fieldId="service-name">
-            <TextInput
-              id="service-name"
-              value={currentRule.serviceName}
-              onChange={(_, value) => setCurrentRule({ ...currentRule, serviceName: value })}
-              placeholder="service-a"
-            />
-          </FormGroup>
-
-          <FormGroup label={t('Service Port')} isRequired fieldId="service-port">
-            <TextInput
-              type="number"
-              id="service-port"
-              value={currentRule.servicePort.toString()}
-              onChange={(_, value) =>
-                setCurrentRule({ ...currentRule, servicePort: parseInt(value) || 80 })
-              }
-              placeholder="80"
-            />
-          </FormGroup>
-        </Form>
+        <BackendReferencesWizardStep
+          currentRule={currentRule}
+          setCurrentRule={setCurrentRule}
+          t={t}
+        />
       ),
     },
   ];
@@ -634,6 +607,7 @@ export const HTTPRouteRuleWizard: React.FC<HTTPRouteRuleWizardProps> = ({
                   isNextDisabled: !isFiltersValid,
                 }
               : {}),
+            ...(index === 2 ? { isNextDisabled: !isBackendRefsValid } : {}),
           }}
         >
           {step.form}
