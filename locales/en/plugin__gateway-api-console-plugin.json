@@ -1,6 +1,4 @@
 {
-  "    |    ": "    |    ",
-  "  |  ": "  |  ",
   " to connect.": " to connect.",
   "A Gateway represents an instance of a service-traffic handling infrastructure by binding Listeners to a set of IP addresses.": "A Gateway represents an instance of a service-traffic handling infrastructure by binding Listeners to a set of IP addresses.",
   "A list of actions to perform on a request or response before it is sent to the backend.": "A list of actions to perform on a request or response before it is sent to the backend.",

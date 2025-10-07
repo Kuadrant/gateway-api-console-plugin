@@ -177,9 +177,8 @@ export const BackendReferencesWizardStep: React.FC<BackendReferencesWizardStepPr
                     position="top"
                     content={
                       <div>
-                        {backendRef.serviceName || 'empty'} {t('    |    ')}{' '}
-                        {backendRef.port || 'empty'}
-                        {t('  |  ')} {backendRef.weight || 'empty'}
+                        {backendRef.serviceName || 'empty'} {'|'} {backendRef.port || 'empty'} {'|'}{' '}
+                        {backendRef.weight || 'empty'}
                       </div>
                     }
                   >
