@@ -118,7 +118,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
               <div>
                 {currentRule.matches.map((match, index) => (
                   <div key={index} style={{ marginBottom: '4px' }}>
-                    {match.pathType || 'PathPrefix'} {match.pathValue || '/'} |{' '}
+                    {match.pathType || 'PathPrefix'} | {match.pathValue || '/'} |{' '}
                     {match.method || 'GET'}
                   </div>
                 ))}
@@ -155,7 +155,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
               <div>
                 {currentRule.backendRefs.map((backend, index) => (
                   <div key={index} style={{ marginBottom: '4px' }}>
-                    {backend.serviceName}:{backend.port}
+                    {backend.serviceName} | {backend.port} | {`${backend.weight} weight`}
                   </div>
                 ))}
               </div>
