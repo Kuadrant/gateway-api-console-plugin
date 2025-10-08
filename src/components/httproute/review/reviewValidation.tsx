@@ -450,7 +450,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
         // Validate hostname format
         if (hasHostname) {
           const validHostname =
-            /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/.test(
+            /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(
               redirect.hostname,
             );
           if (!validHostname) {
@@ -556,7 +556,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
         // Validate hostname format
         if (hasHostname) {
           const validHostname =
-            /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/.test(
+            /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(
               rewrite.hostname,
             );
           if (!validHostname) {

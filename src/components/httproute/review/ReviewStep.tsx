@@ -14,6 +14,7 @@ import {
   ListItem,
 } from '@patternfly/react-core';
 import { validateCompleteRule } from './reviewValidation';
+import { getFilterSummary } from '../filters/filterUtils';
 
 interface ReviewStepProps {
   currentRule: any;
@@ -29,6 +30,37 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
   }, [currentRule]);
 
   const isRuleValid = validationResult.isValid;
+  const formatFilterSummary = (filter: any): React.ReactNode => {
+    const summary = getFilterSummary(filter);
+
+    if (!summary || summary === 'Filter') {
+      return <div>{filter.type || 'Unknown Filter'}</div>;
+    }
+
+    const parts = summary.split(' — ');
+    const filterName = parts[0]; // "RequestHeaderModifier"
+    const details = parts[1];
+
+    return (
+      <div>
+        <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{filterName}</div>
+
+        {details && (
+          <div style={{ marginLeft: '8px' }}>
+            {details.split(' | Type:').map((detail, idx) => {
+              const formattedDetail = idx === 0 ? detail : `Type:${detail}`;
+
+              return (
+                <div key={idx} style={{ fontSize: '14px', color: '#666', marginBottom: '2px' }}>
+                  {formattedDetail}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Form>
@@ -136,8 +168,8 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
             {hasFilters ? (
               <div>
                 {currentRule.filters.map((filter, index) => (
-                  <div key={index} style={{ marginBottom: '4px' }}>
-                    {filter.type || 'Unknown Filter'}
+                  <div key={index} style={{ marginBottom: '6px' }}>
+                    {formatFilterSummary(filter)}
                   </div>
                 ))}
               </div>

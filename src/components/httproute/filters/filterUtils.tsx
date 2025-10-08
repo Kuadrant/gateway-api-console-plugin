@@ -166,10 +166,34 @@ export const getFilterSummary = (filter: HTTPRouteFilter) => {
         filter.type === 'RequestHeaderModifier'
           ? filter.requestHeaderModifier || {}
           : filter.responseHeaderModifier || {};
+
       const parts: string[] = [];
-      if (Array.isArray(hm.add)) parts.push(`add:${hm.add.length}`);
-      if (Array.isArray(hm.set)) parts.push(`set:${hm.set.length}`);
-      if (hm.remove) parts.push(`remove:${hm.remove.length}`);
+
+      if (Array.isArray(hm.add) && hm.add.length > 0) {
+        hm.add.forEach((header: any) => {
+          if (header.name && header.value) {
+            parts.push(`Type: add | Header name: ${header.name} | Value: ${header.value}`);
+          }
+        });
+      }
+
+      if (Array.isArray(hm.set) && hm.set.length > 0) {
+        hm.set.forEach((header: any) => {
+          if (header.name && header.value) {
+            parts.push(`Type: set | Header name: ${header.name} | Value: ${header.value}`);
+          }
+        });
+      }
+
+      if (Array.isArray(hm.remove) && hm.remove.length > 0) {
+        hm.remove.forEach((headerName: any) => {
+          const name = typeof headerName === 'string' ? headerName : headerName?.name;
+          if (name) {
+            parts.push(`Type: remove | Header name: ${name}`);
+          }
+        });
+      }
+
       return parts.length ? `${filter.type} — ${parts.join(' | ')}` : filter.type;
     }
     case 'URLRewrite': {
