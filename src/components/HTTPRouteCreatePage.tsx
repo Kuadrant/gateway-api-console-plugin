@@ -49,6 +49,7 @@ import {
   parseBackendRefsFromYAML,
 } from './httproute/backend-refs/backendUtils';
 import { HTTPRouteBackendRef } from './httproute/backend-refs/backendTypes';
+import { validateCompleteRule } from './httproute/review/reviewValidation';
 
 const generateMatchesForYAML = (matches: HTTPRouteMatch[]) => {
   if (!matches || matches.length === 0) {
@@ -131,9 +132,9 @@ const parseMatchesFromYAML = (
 
   return yamlMatches.map((match, matchIndex: number) => ({
     id: `match-${Date.now()}-${matchIndex}`,
-    pathType: match.path?.type || 'PathPrefix',
+    pathType: match.path?.type || '',
     pathValue: match.path?.value || '/',
-    method: match.method || 'GET',
+    method: match.method || '',
     headers: match.headers
       ? match.headers.map(
           (header, headerIndex: number): HTTPRouteHeader => ({
@@ -428,8 +429,9 @@ const HTTPRouteCreatePage: React.FC = () => {
         const basicFieldsValid = rule.id;
         const backendRefsValid = areBackendRefsValid(rule.backendRefs || []);
         const matchesValid = validateMatchesInRule(rule.matches);
+        const reviewValid = validateCompleteRule(rule).isValid;
 
-        return basicFieldsValid && matchesValid && backendRefsValid;
+        return basicFieldsValid && matchesValid && backendRefsValid && reviewValid;
       });
 
     return !!(routeName && hasValidParentRef && hasValidRules);

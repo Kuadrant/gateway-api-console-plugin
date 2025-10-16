@@ -37,7 +37,7 @@ export const parseBackendRefsFromYAML = (backendRefs: any[]): HTTPRouteBackendRe
     id: `backend-${Date.now()}-${index}`,
     serviceName: ref.name || '',
     serviceNamespace: ref.namespace || '',
-    port: ref.port || 80,
+    port: ref.port || 0,
     weight: ref.weight || 1,
   }));
 };
