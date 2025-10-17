@@ -8,11 +8,11 @@ export const generateBackendRefsForYAML = (
   }
 
   return backendRefs
-    .filter((ref) => ref.serviceName && ref.serviceName.trim() !== '' && ref.port > 0)
+    .filter((ref) => ref.serviceName && ref.serviceName.trim() !== '')
     .map((ref) => {
       const yamlBackendRef: HTTPRouteBackendRefSpec = {
         name: ref.serviceName,
-        port: ref.port,
+        ...(ref.port > 0 ? { port: ref.port } : {}),
       };
 
       if (ref.serviceNamespace && ref.serviceNamespace.trim() !== '') {

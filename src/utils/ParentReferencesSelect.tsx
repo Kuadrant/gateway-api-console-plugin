@@ -13,8 +13,9 @@ import {
   AlertVariant,
   FormFieldGroupExpandable,
   FormFieldGroupHeader,
+  Popover,
 } from '@patternfly/react-core';
-import { PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
+import { HelpIcon, PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
 import { useK8sWatchResource, useActiveNamespace } from '@openshift-console/dynamic-plugin-sdk';
 
@@ -224,7 +225,7 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
           if (selectedGateway) {
             updatedRef.gatewayNamespace = selectedGateway.metadata.namespace;
             updatedRef.sectionName = '';
-            updatedRef.port = 80;
+            updatedRef.port = 0;
           }
         }
 
@@ -257,10 +258,25 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
     <FormGroup
       label={
         <span>
-          {t('Parent references')} <span style={{ color: 'red' }}>*</span>
+          {t('Parent references')} <span style={{ color: 'red' }}>*</span>{' '}
+          <Popover
+            headerContent={t('Parent references')}
+            bodyContent={
+              <p>
+                {t(
+                  'Attaches this route to the selected Gateway(s), linking it to the entry point.',
+                )}
+              </p>
+            }
+            aria-label={t('Parent references help')}
+          >
+            <Button variant="plain" aria-label={t('Parent references help')}>
+              <HelpIcon />
+            </Button>
+          </Popover>
         </span>
       }
-      fieldId={parentRefs[0] ? `gateway-name-${parentRefs[0].id}` : 'parent-references'}
+      fieldId="parent-references"
     >
       {!hasValidParentRef && (
         <Alert
@@ -277,7 +293,8 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
           descriptionParts.push(`${t('Namespace')}: ${parentRef.gatewayNamespace}`);
         if (parentRef.sectionName)
           descriptionParts.push(`${t('Section')}: ${parentRef.sectionName}`);
-        if (parentRef.port) descriptionParts.push(`${t('Port')}: ${parentRef.port}`);
+        if (parentRef.port && parentRef.port > 0)
+          descriptionParts.push(`${t('Port')}: ${parentRef.port}`);
         const description = descriptionParts.length > 0 ? descriptionParts.join(' | ') : undefined;
 
         return (
@@ -308,8 +325,6 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
             }
             style={{
               marginBottom: '16px',
-              border: '1px solid #d2d2d2',
-              borderRadius: '4px',
             }}
           >
             <div style={{ paddingRight: '16px' }}>
@@ -328,7 +343,6 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
                   fieldId={`gateway-name-${parentRef.id}`}
                 >
                   <FormSelect
-                    id={`gateway-name-${parentRef.id}`}
                     value={parentRef.gatewayName}
                     onChange={(_, value) =>
                       updateParentReference(parentRef.id, 'gatewayName', value)
@@ -354,6 +368,11 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
                       );
                     })}
                   </FormSelect>
+                  <FormHelperText>
+                    <HelperText>
+                      <HelperTextItem>{t('The name of the Gateway to attach to.')}</HelperTextItem>
+                    </HelperText>
+                  </FormHelperText>
                 </FormGroup>
 
                 <FormGroup label={t('Namespace')} fieldId={`gateway-namespace-${parentRef.id}`}>
@@ -364,6 +383,11 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
                     placeholder={t('Gateway Namespace')}
                     isDisabled
                   />
+                  <FormHelperText>
+                    <HelperText>
+                      <HelperTextItem>{t('The namespace of the Gateway.')}</HelperTextItem>
+                    </HelperText>
+                  </FormHelperText>
                 </FormGroup>
               </div>
 
@@ -371,7 +395,6 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <FormGroup label={t('Section name')} fieldId={`section-name-${parentRef.id}`}>
                   <FormSelect
-                    id={`section-name-${parentRef.id}`}
                     value={parentRef.sectionName}
                     onChange={(_, value) =>
                       updateParentReference(parentRef.id, 'sectionName', value)
@@ -438,18 +461,6 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
           {t('Add parent reference')}
         </Button>
       )}
-
-      <FormHelperText>
-        <HelperText>
-          <HelperTextItem>
-            {t('Specifies the Gateway(s) this route should attach to. You can ')}
-            <Button variant="link" isInline>
-              {t('create gateway')}
-            </Button>
-            {t(' to connect.')}
-          </HelperTextItem>
-        </HelperText>
-      </FormHelperText>
     </FormGroup>
   );
 };

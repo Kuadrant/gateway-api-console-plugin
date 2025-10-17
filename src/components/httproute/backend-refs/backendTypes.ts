@@ -32,7 +32,7 @@ export interface BackendReferencesWizardStepProps {
 export interface HTTPRouteBackendRefSpec {
   name: string;
   namespace?: string;
-  port: number;
+  port?: number;
   weight?: number;
   group?: string;
   kind?: string;
