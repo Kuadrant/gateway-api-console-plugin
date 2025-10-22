@@ -16,7 +16,6 @@ import {
   Tabs,
   TabTitleText,
   TextInput,
-  Title,
   Tooltip,
 } from '@patternfly/react-core';
 import { MinusCircleIcon, PlusCircleIcon } from '@patternfly/react-icons';
@@ -91,6 +90,13 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
     const idx = activeFilterTab;
     const updated = (filters || []).filter((_, i) => i !== idx);
     onChange(updated);
+    setHeaderRowsByTab((prev) =>
+      Object.fromEntries(
+        Object.entries(prev)
+          .filter(([k]) => Number(k) !== idx)
+          .map(([k, v]) => [String(Number(k) > idx ? Number(k) - 1 : Number(k)), v]),
+      ),
+    );
     if (activeFilterTab >= updated.length && updated.length > 0) {
       setActiveFilterTab(updated.length - 1);
     } else if (updated.length === 0) {
@@ -190,23 +196,26 @@ const FilterActions: React.FC<FilterActionsProps> = ({ filters, onChange }) => {
   return (
     <Form>
       <FormGroup fieldId="filters-section">
-        <Title headingLevel="h3">{t('Filters')}</Title>
-        <div style={{ marginBottom: 12 }}>
-          {t(
-            'A list of actions to perform on a request or response before it is sent to the backend.',
-          )}
-        </div>
         {(filters?.length ?? 0) === 0 ? (
-          <Button
-            variant={ButtonVariant.link}
-            icon={<PlusCircleIcon />}
-            isInline
-            onClick={handleAddFilter}
-          >
-            {t('Add filter')}
-          </Button>
+          <div style={{ textAlign: 'left' }}>
+            <h1 style={{ marginBottom: '16px', fontSize: '24px' }}>{t('Filters')}</h1>
+            <p style={{ marginBottom: '16px', color: '#666' }}>
+              {t(
+                'A list of actions to perform on a request or response before it is sent to the backend.',
+              )}
+            </p>
+            <Button variant="link" icon={<PlusCircleIcon />} onClick={handleAddFilter}>
+              {t('Add filter')}
+            </Button>
+          </div>
         ) : (
           <>
+            <h1 style={{ marginBottom: '16px', fontSize: '24px' }}>{t('Filters')}</h1>
+            <p style={{ marginBottom: '10px', color: '#666' }}>
+              {t(
+                'A list of actions to perform on a request or response before it is sent to the backend.',
+              )}
+            </p>
             <div style={{ marginBottom: 8 }}>
               <Tabs
                 activeKey={activeFilterTab}
