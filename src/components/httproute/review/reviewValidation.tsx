@@ -20,6 +20,52 @@ interface HTTPRouteParameter {
   value: string;
 }
 
+// utility function for number validation
+export const validateNumberField = (
+  value: any,
+  fieldName: string,
+  min: number,
+  max: number,
+  isRequired = true,
+): ValidationError | null => {
+  // check if required
+  if (isRequired && (value === undefined || value === null || value === '')) {
+    return {
+      field: fieldName,
+      message: `${fieldName} is required`,
+      severity: 'error',
+    };
+  }
+
+  // skip validation if not required and empty
+  if (!isRequired && (value === undefined || value === null || value === '')) {
+    return null;
+  }
+
+  // convert string to number if needed
+  const numValue = typeof value === 'string' ? parseInt(value, 10) : value;
+
+  // check if it's a valid number
+  if (typeof numValue !== 'number' || isNaN(numValue) || !Number.isInteger(numValue)) {
+    return {
+      field: fieldName,
+      message: `${fieldName} must be a valid integer`,
+      severity: 'error',
+    };
+  }
+
+  // check range
+  if (numValue < min || numValue > max) {
+    return {
+      field: fieldName,
+      message: `${fieldName} must be between ${min} and ${max}`,
+      severity: 'error',
+    };
+  }
+
+  return null;
+};
+
 // generic validation for headers and query parameters
 export const validateHTTPRouteParameters = (
   parameters: HTTPRouteParameter[],
@@ -65,7 +111,7 @@ export const validateHTTPRouteParameters = (
       });
     }
 
-    //  type - must be valid
+    // type - must be valid
     if (!param.type || !['Exact', 'RegularExpression'].includes(param.type)) {
       errors.push({
         field: `matches[${matchIndex}].${fieldPrefix}[${paramIndex}].type`,
@@ -185,7 +231,7 @@ export const validateMatches = (matches: HTTPRouteMatch[]): ValidationResult => 
   };
 };
 
-//backend references validation - for real backend refs
+// backend references validation - for real backend refs
 export const validateBackendRefs = (backendRefs: any[]): ValidationResult => {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
@@ -195,7 +241,7 @@ export const validateBackendRefs = (backendRefs: any[]): ValidationResult => {
   }
 
   backendRefs.forEach((ref, index) => {
-    // ervice name - required field
+    // service name - required field
     if (!ref.serviceName || ref.serviceName.trim() === '') {
       errors.push({
         field: `backendRefs[${index}].serviceName`,
@@ -204,7 +250,7 @@ export const validateBackendRefs = (backendRefs: any[]): ValidationResult => {
       });
     }
 
-    // 2. Service Namespace
+    // service namespace - required field
     if (!ref.serviceNamespace || ref.serviceNamespace.trim() === '') {
       errors.push({
         field: `backendRefs[${index}].serviceNamespace`,
@@ -213,32 +259,37 @@ export const validateBackendRefs = (backendRefs: any[]): ValidationResult => {
       });
     }
 
-    // 3. Port
-    if (!ref.port || ref.port <= 0) {
+    // port validation - must be valid integer in range
+    const portError = validateNumberField(
+      ref.port,
+      `Backend Reference ${index + 1}: Port`,
+      1,
+      65535,
+      true,
+    );
+    if (portError) {
       errors.push({
         field: `backendRefs[${index}].port`,
-        message: `Backend Reference ${index + 1}: Valid port is required (must be > 0)`,
-        severity: 'error',
+        message: portError.message,
+        severity: portError.severity,
       });
     }
 
-    // 4. Weight
-    if (!ref.weight || ref.weight < 1 || ref.weight > 1000000) {
+    // weight validation - must be valid integer in range
+    const weightError = validateNumberField(
+      ref.weight,
+      `Backend Reference ${index + 1}: Weight`,
+      1,
+      1000000,
+      true,
+    );
+    if (weightError) {
       errors.push({
         field: `backendRefs[${index}].weight`,
-        message: `Backend Reference ${index + 1}: Weight must be between 1 and 1,000,000`,
-        severity: 'error',
+        message: weightError.message,
+        severity: weightError.severity,
       });
     }
-
-    // 5. Cross-namespace warning (TODO: add detailed filter validation when needed)
-    // if (ref.serviceNamespace !== currentNamespace) {
-    //   warnings.push({
-    //     field: `backendRefs[${index}].serviceNamespace`,
-    //     message: `Backend Reference ${index + 1}: Cross-namespace reference may require ReferenceGrant`,
-    //     severity: 'warning'
-    //   });
-    // }
   });
 
   return {
@@ -258,17 +309,17 @@ export const validateFilters = (filters: any[]): ValidationResult => {
   }
 
   filters.forEach((filter, filterIndex) => {
-    // 1. Type - required field
+    // type - required field
     if (!filter.type || filter.type.trim() === '') {
       errors.push({
         field: `filters[${filterIndex}].type`,
         message: `Filter ${filterIndex + 1}: type is required`,
         severity: 'error',
       });
-      return; // Skip further validation if no type
+      return; // skip further validation if no type
     }
 
-    // 2. Type-specific validation
+    // type-specific validation
     switch (filter.type) {
       case 'RequestHeaderModifier':
       case 'ResponseHeaderModifier': {
@@ -278,7 +329,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
             : 'responseHeaderModifier';
         const modifier = filter[modifierKey] || {};
 
-        // Check if at least one operation is configured
+        // check if at least one operation is configured
         const hasAdd = modifier.add && modifier.add.length > 0;
         const hasSet = modifier.set && modifier.set.length > 0;
         const hasRemove = modifier.remove && modifier.remove.length > 0;
@@ -293,7 +344,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           });
         }
 
-        // Validate add operations
+        // validate add operations
         if (hasAdd) {
           modifier.add.forEach((header: any, headerIndex: number) => {
             if (!header.name || header.name.trim() === '') {
@@ -305,7 +356,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
                 severity: 'error',
               });
             } else {
-              // Validate header name format
+              // validate header name format
               const validHeaderName = /^[a-zA-Z0-9\-_]+$/.test(header.name);
               if (!validHeaderName) {
                 errors.push({
@@ -330,7 +381,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           });
         }
 
-        // Validate set operations
+        // validate set operations
         if (hasSet) {
           modifier.set.forEach((header: any, headerIndex: number) => {
             if (!header.name || header.name.trim() === '') {
@@ -342,7 +393,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
                 severity: 'error',
               });
             } else {
-              // Validate header name format
+              // validate header name format
               const validHeaderName = /^[a-zA-Z0-9\-_]+$/.test(header.name);
               if (!validHeaderName) {
                 errors.push({
@@ -367,7 +418,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           });
         }
 
-        // Validate remove operations
+        // validate remove operations
         if (hasRemove) {
           modifier.remove.forEach((headerName: any, headerIndex: number) => {
             const name = typeof headerName === 'string' ? headerName : headerName?.name;
@@ -380,7 +431,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
                 severity: 'error',
               });
             } else {
-              // Validate header name format
+              // validate header name format
               const validHeaderName = /^[a-zA-Z0-9\-_]+$/.test(name);
               if (!validHeaderName) {
                 errors.push({
@@ -395,7 +446,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           });
         }
 
-        // Check for duplicate header names within operations
+        // check for duplicate header names within operations
         const checkDuplicates = (headers: any[], operation: string) => {
           const names = headers
             .map((h) => (typeof h === 'string' ? h : h.name)?.toLowerCase())
@@ -421,11 +472,11 @@ export const validateFilters = (filters: any[]): ValidationResult => {
       case 'RequestRedirect': {
         const redirect = filter.requestRedirect || {};
 
-        // At least one redirect parameter must be specified
+        // at least one redirect parameter must be specified
         const hasScheme = redirect.scheme && redirect.scheme.trim() !== '';
         const hasHostname = redirect.hostname && redirect.hostname.trim() !== '';
-        const hasPort = redirect.port && redirect.port > 0;
-        const hasStatusCode = redirect.statusCode && redirect.statusCode > 0;
+        const hasPort = redirect.port !== undefined && redirect.port !== null;
+        const hasStatusCode = redirect.statusCode !== undefined && redirect.statusCode !== null;
         const hasPath = redirect.path && redirect.path.type;
 
         if (!hasScheme && !hasHostname && !hasPort && !hasStatusCode && !hasPath) {
@@ -437,8 +488,21 @@ export const validateFilters = (filters: any[]): ValidationResult => {
             severity: 'error',
           });
         }
-
-        // Validate scheme
+        if (!hasStatusCode) {
+          errors.push({
+            field: `filters[${filterIndex}].requestRedirect.statusCode`,
+            message: `Filter ${filterIndex + 1}: statusCode is required for RequestRedirect`,
+            severity: 'error',
+          });
+        }
+        if (!hasPort) {
+          errors.push({
+            field: `filters[${filterIndex}].requestRedirect.port`,
+            message: `Filter ${filterIndex + 1}: port is required for RequestRedirect`,
+            severity: 'error',
+          });
+        }
+        // validate scheme
         if (hasScheme && !['http', 'https'].includes(redirect.scheme.toLowerCase())) {
           errors.push({
             field: `filters[${filterIndex}].requestRedirect.scheme`,
@@ -447,7 +511,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           });
         }
 
-        // Validate hostname format
+        // validate hostname format
         if (hasHostname) {
           const validHostname =
             /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(
@@ -462,27 +526,51 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           }
         }
 
-        // Validate port range
-        if (hasPort && (redirect.port < 1 || redirect.port > 65535)) {
-          errors.push({
-            field: `filters[${filterIndex}].requestRedirect.port`,
-            message: `Filter ${filterIndex + 1}: port must be between 1 and 65535`,
-            severity: 'error',
-          });
+        // validate port - enhanced with number validation
+        if (hasPort) {
+          const portError = validateNumberField(
+            redirect.port,
+            `Filter ${filterIndex + 1}: Port`,
+            1,
+            65535,
+            false,
+          );
+          if (portError) {
+            errors.push({
+              field: `filters[${filterIndex}].requestRedirect.port`,
+              message: portError.message,
+              severity: portError.severity,
+            });
+          }
         }
 
-        // Validate status code
-        if (hasStatusCode && ![301, 302, 303, 307, 308].includes(redirect.statusCode)) {
-          errors.push({
-            field: `filters[${filterIndex}].requestRedirect.statusCode`,
-            message: `Filter ${
-              filterIndex + 1
-            }: statusCode must be one of: 301, 302, 303, 307, 308`,
-            severity: 'error',
-          });
+        // validate status code - enhanced with number validation
+        if (hasStatusCode) {
+          const statusError = validateNumberField(
+            redirect.statusCode,
+            `Filter ${filterIndex + 1}: Status Code`,
+            301,
+            308,
+            false,
+          );
+          if (statusError) {
+            errors.push({
+              field: `filters[${filterIndex}].requestRedirect.statusCode`,
+              message: statusError.message,
+              severity: statusError.severity,
+            });
+          } else if (![301, 302, 303, 307, 308].includes(redirect.statusCode)) {
+            errors.push({
+              field: `filters[${filterIndex}].requestRedirect.statusCode`,
+              message: `Filter ${
+                filterIndex + 1
+              }: statusCode must be one of: 301, 302, 303, 307, 308`,
+              severity: 'error',
+            });
+          }
         }
 
-        // Validate path
+        // validate path
         if (hasPath) {
           if (!['ReplaceFullPath', 'ReplacePrefixMatch'].includes(redirect.path.type)) {
             errors.push({
@@ -539,7 +627,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
       case 'URLRewrite': {
         const rewrite = filter.urlRewrite || {};
 
-        // At least one rewrite parameter must be specified
+        // at least one rewrite parameter must be specified
         const hasHostname = rewrite.hostname && rewrite.hostname.trim() !== '';
         const hasPath = rewrite.path && rewrite.path.type;
 
@@ -553,7 +641,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           });
         }
 
-        // Validate hostname format
+        // validate hostname format
         if (hasHostname) {
           const validHostname =
             /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(
@@ -568,7 +656,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           }
         }
 
-        // Validate path (same logic as RequestRedirect)
+        // validate path (same logic as RequestRedirect)
         if (hasPath) {
           if (!['ReplaceFullPath', 'ReplacePrefixMatch'].includes(rewrite.path.type)) {
             errors.push({
@@ -623,7 +711,7 @@ export const validateFilters = (filters: any[]): ValidationResult => {
         const mirror = filter.requestMirror || {};
         const backendRef = mirror.backendRef || {};
 
-        // Service name is required
+        // service name is required
         if (!backendRef.name || backendRef.name.trim() === '') {
           errors.push({
             field: `filters[${filterIndex}].requestMirror.backendRef.name`,
@@ -632,17 +720,20 @@ export const validateFilters = (filters: any[]): ValidationResult => {
           });
         }
 
-        // Validate port if specified
-        if (backendRef.port !== undefined) {
-          if (
-            typeof backendRef.port !== 'number' ||
-            backendRef.port < 1 ||
-            backendRef.port > 65535
-          ) {
+        // validate port if specified - enhanced with number validation
+        if (backendRef.port !== undefined && backendRef.port !== null) {
+          const portError = validateNumberField(
+            backendRef.port,
+            `Filter ${filterIndex + 1}: RequestMirror Port`,
+            1,
+            65535,
+            false,
+          );
+          if (portError) {
             errors.push({
               field: `filters[${filterIndex}].requestMirror.backendRef.port`,
-              message: `Filter ${filterIndex + 1}: RequestMirror port must be between 1 and 65535`,
-              severity: 'error',
+              message: portError.message,
+              severity: portError.severity,
             });
           }
         }
@@ -678,14 +769,14 @@ export const validateCompleteRule = (currentRule: any): ValidationResult => {
     allWarnings.push(...matchesValidation.warnings);
   }
 
-  // UPDATED: detailed filters validation
+  // detailed filters validation
   if (currentRule.filters && currentRule.filters.length > 0) {
     const filtersValidation = validateFilters(currentRule.filters);
     allErrors.push(...filtersValidation.errors);
     allWarnings.push(...filtersValidation.warnings);
   }
 
-  // backend References validation
+  // backend references validation
   if (currentRule.backendRefs && currentRule.backendRefs.length > 0) {
     const backendRefsValidation = validateBackendRefs(currentRule.backendRefs);
     allErrors.push(...backendRefsValidation.errors);

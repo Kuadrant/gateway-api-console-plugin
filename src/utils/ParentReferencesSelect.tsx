@@ -19,14 +19,45 @@ import { HelpIcon, PlusCircleIcon, TrashIcon } from '@patternfly/react-icons';
 import { useTranslation } from 'react-i18next';
 import { useK8sWatchResource, useActiveNamespace } from '@openshift-console/dynamic-plugin-sdk';
 
-interface ParentReference {
+export interface ParentReference {
   id: string;
   gatewayName: string;
   gatewayNamespace: string;
   sectionName: string;
   port: number;
 }
+export const validateParentReference = (ref: ParentReference): boolean => {
+  // Gateway name is required
+  if (!ref.gatewayName || ref.gatewayName.trim() === '') {
+    return false;
+  }
 
+  // Section name is required
+  if (!ref.sectionName || ref.sectionName.trim() === '') {
+    return false;
+  }
+
+  // Port is required and must be valid
+  if (!ref.port || ref.port <= 0 || ref.port > 65535 || !Number.isInteger(ref.port)) {
+    return false;
+  }
+
+  // Gateway namespace should be valid (optional but if present should not be empty)
+  if (ref.gatewayNamespace && ref.gatewayNamespace.trim() === '') {
+    return false;
+  }
+
+  return true;
+};
+
+// Validate all parent references
+export const validateAllParentReferences = (parentRefs: ParentReference[]): boolean => {
+  if (parentRefs.length === 0) {
+    return false; // At least one parent reference is required
+  }
+
+  return parentRefs.every(validateParentReference);
+};
 // Extend Gateway interface for validation
 interface Gateway {
   metadata: {
@@ -252,7 +283,7 @@ const ParentReferencesSelect: React.FC<ParentReferencesSelectProps> = ({
   };
 
   // Validation check
-  const hasValidParentRef = parentRefs.some((ref) => ref.gatewayName && ref.sectionName);
+  const hasValidParentRef = validateAllParentReferences(parentRefs);
 
   return (
     <FormGroup

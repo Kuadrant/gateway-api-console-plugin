@@ -30,7 +30,9 @@ import {
 import { useLocation, useHistory } from 'react-router-dom';
 import { k8sCreate, k8sUpdate } from '@openshift-console/dynamic-plugin-sdk';
 import * as yaml from 'js-yaml';
-import ParentReferencesSelect from '../utils/ParentReferencesSelect';
+import ParentReferencesSelect, {
+  validateAllParentReferences,
+} from '../utils/ParentReferencesSelect';
 import {
   ActionsColumn,
   IAction,
@@ -197,7 +199,8 @@ const formatMatchesForDisplay = (matches: any[], t: any) => {
                       marginBottom: idx < matches.slice(3).length - 1 ? '4px' : '0',
                     }}
                   >
-                    {match.pathType || 'Not set'} {match.pathValue || '/'} | {match.method || 'Not set'}
+                    {match.pathType || 'Not set'}| {match.pathValue || '/'} |{' '}
+                    {match.method || 'Not set'}
                   </div>
                 ))}
               </div>
@@ -428,20 +431,26 @@ const HTTPRouteCreatePage: React.FC = () => {
       const hr = httpRoute as Partial<HTTPRouteResource>;
       if (hr.metadata?.name && hr.metadata.name !== routeName) setRouteName(hr.metadata.name);
 
-      if (hr.spec?.hostnames) {
-        const newHostnames = hr.spec.hostnames;
-        if (JSON.stringify(newHostnames) !== JSON.stringify(hostnames)) setHostnames(newHostnames);
+      const newHostnames = hr.spec?.hostnames || [];
+      if (JSON.stringify(newHostnames) !== JSON.stringify(hostnames)) {
+        setHostnames(newHostnames);
       }
 
       if (hr.spec?.parentRefs && hr.spec.parentRefs.length > 0) {
         const formattedParentRefs: ParentReference[] = hr.spec.parentRefs.map(
-          (ref, index: number) => ({
-            id: `parent-${Date.now()}-${index}`,
-            gatewayName: ref.name || '',
-            gatewayNamespace: ref.namespace || selectedNamespace,
-            sectionName: ref.sectionName || '',
-            port: ref.port || 0,
-          }),
+          (ref, index: number) => {
+            const hasSectionName = ref.sectionName && ref.sectionName.trim() !== '';
+            const hasPort = ref.port && ref.port > 0;
+            const shouldResetBoth = !hasSectionName || !hasPort; // Mutual dependency logic
+
+            return {
+              id: `parent-${Date.now()}-${index}`,
+              gatewayName: ref.name || '',
+              gatewayNamespace: ref.namespace || selectedNamespace,
+              sectionName: shouldResetBoth ? '' : ref.sectionName,
+              port: shouldResetBoth ? 0 : ref.port,
+            };
+          },
         );
         if (JSON.stringify(formattedParentRefs) !== JSON.stringify(parentRefs))
           setParentRefs(formattedParentRefs);
@@ -554,7 +563,7 @@ const HTTPRouteCreatePage: React.FC = () => {
   };
 
   const formValidation = () => {
-    const hasValidParentRef = parentRefs.some((ref) => ref.gatewayName && ref.sectionName);
+    const hasValidParentRef = validateAllParentReferences(parentRefs);
 
     const hasValidRules =
       rules.length > 0 &&
@@ -687,7 +696,14 @@ const HTTPRouteCreatePage: React.FC = () => {
       {createView === 'form' ? (
         <PageSection hasBodyWrapper={false}>
           <Form className="co-m-pane__form">
-            <FormGroup label={t('HTTPRoute name')} isRequired fieldId="route-name">
+            <FormGroup
+              label={
+                <>
+                  {t('HTTPRoute name')} <span style={{ color: 'red' }}>*</span>
+                </>
+              }
+              fieldId="route-name"
+            >
               <TextInput
                 isRequired
                 type="text"
@@ -815,7 +831,7 @@ const HTTPRouteCreatePage: React.FC = () => {
                 <Alert
                   variant={AlertVariant.warning}
                   isInline
-                  title={t('No rules defined. HTTPRoute will use default routing.')}
+                  title={t('At least one rule is required for a HTTPRoute to handle traffic.')}
                 />
               )}
 
