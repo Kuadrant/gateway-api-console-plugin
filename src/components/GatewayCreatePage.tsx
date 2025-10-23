@@ -34,11 +34,14 @@ import {
   ResourceYAMLEditor,
   useActiveNamespace,
   useK8sWatchResource,
+  getGroupVersionKindForResource,
+  useK8sModel,
 } from '@openshift-console/dynamic-plugin-sdk';
 import * as yaml from 'js-yaml';
 import GatewayApiCreateUpdate from './GatewayApiCreateUpdate';
 import { useLocation } from 'react-router';
 import { GatewayResource } from './gateway/GatewayModel';
+import type { K8sResourceCommon } from '@openshift-console/dynamic-plugin-sdk';
 import {
   generateUniqueId,
   removeCertsAndTlsOptionsForPassthrough,
@@ -50,14 +53,16 @@ const GatewayCreatePage: React.FC = () => {
   const [createView, setCreateView] = React.useState<'form' | 'yaml'>('form');
   const [selectedNamespace] = useActiveNamespace();
   const [create, setCreate] = React.useState(true);
-  const [originalMetadata, setOriginalMetadata] = React.useState<any>(null);
+  const [originalMetadata, setOriginalMetadata] = React.useState<
+    K8sResourceCommon['metadata'] | null
+  >(null);
 
   // Gateway settings
   const [gatewayName, setGatewayName] = React.useState('');
   const [gatewayClassName, setGatewayClassName] = React.useState('istio');
 
   // YAML editor
-  const [yamlContent, setYamlContent] = React.useState<any>(null);
+  const [yamlContent, setYamlContent] = React.useState<unknown>(null);
 
   const location = useLocation();
   const pathSplit = location.pathname.split('/');
@@ -66,17 +71,41 @@ const GatewayCreatePage: React.FC = () => {
 
   // Modal
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [listeners, setListeners] = React.useState<any[]>([]);
+  type TLSOptionRow = { id: string; key: string; value: string };
+  type CertificateRefRow = {
+    id: string;
+    name: string;
+    namespace?: string;
+    kind: 'Secret' | 'ConfigMap';
+  };
+  type AllowedRouteKindRow = { id: string; kind: string; group: string };
+  type AllowedRoutesUI = {
+    namespaces: { from: 'All' | 'Same' | 'Selector' };
+    kinds: AllowedRouteKindRow[];
+  };
+  type ListenerUI = {
+    name: string;
+    protocol: 'HTTP' | 'HTTPS' | 'TLS' | 'TCP' | 'UDP';
+    port: number;
+    hostname: string;
+    tlsMode: 'Terminate' | 'Passthrough';
+    tlsOptions: TLSOptionRow[];
+    certificateRefs: CertificateRefRow[];
+    allowedRoutes: AllowedRoutesUI;
+  };
+  type AddressRow = { id: string; type: 'IPAddress' | 'Hostname'; value: string };
+
+  const [listeners, setListeners] = React.useState<ListenerUI[]>([]);
   const [editingListenerIndex, setEditingListenerIndex] = React.useState<number | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [yamlError, setYamlError] = React.useState<string | null>(null);
 
   // Addresses settings
-  const [addresses, setAddresses] = React.useState<any[]>([]);
+  const [addresses, setAddresses] = React.useState<AddressRow[]>([]);
   const [isAddressesExpanded, setIsAddressesExpanded] = React.useState(false);
 
   // Prefilled data for listener fields (temporary data)
-  const [currentListener, setCurrentListener] = React.useState({
+  const [currentListener, setCurrentListener] = React.useState<ListenerUI>({
     name: '',
     protocol: 'HTTP',
     port: 80,
@@ -139,12 +168,15 @@ const GatewayCreatePage: React.FC = () => {
     });
   };
 
-  const gatewayModel = {
-    apiGroup: 'gateway.networking.k8s.io',
-    apiVersion: 'v1',
+  const gatewayGVK = getGroupVersionKindForResource({
+    apiVersion: 'gateway.networking.k8s.io/v1',
     kind: 'Gateway',
-    plural: 'gateways',
-  };
+  });
+  const [gatewayModel] = useK8sModel({
+    group: gatewayGVK.group,
+    version: gatewayGVK.version,
+    kind: gatewayGVK.kind,
+  });
 
   const handleListenerSave = () => {
     // Remove certificates and TLS options when TLS mode is Passthrough
@@ -185,7 +217,7 @@ const GatewayCreatePage: React.FC = () => {
   };
 
   const handleAddCertificateRef = () => {
-    const newRef = {
+    const newRef: CertificateRefRow = {
       id: generateUniqueId('cert'),
       name: '',
       namespace: selectedNamespace,
@@ -197,16 +229,24 @@ const GatewayCreatePage: React.FC = () => {
     });
   };
 
-  const handleCertificateRefChange = (id: number, field: string, value: string) => {
+  const handleCertificateRefChange = (
+    id: string,
+    field: 'name' | 'namespace' | 'kind',
+    value: string,
+  ) => {
     setCurrentListener({
       ...currentListener,
       certificateRefs: currentListener.certificateRefs.map((ref) =>
-        ref.id === id ? { ...ref, [field]: value } : ref,
+        ref.id === id
+          ? field === 'kind'
+            ? { ...ref, kind: value as CertificateRefRow['kind'] }
+            : { ...ref, [field]: value }
+          : ref,
       ),
     });
   };
 
-  const handleRemoveCertificateRef = (id: number) => {
+  const handleRemoveCertificateRef = (id: string) => {
     setCurrentListener({
       ...currentListener,
       certificateRefs: currentListener.certificateRefs.filter((ref) => ref.id !== id),
@@ -228,7 +268,7 @@ const GatewayCreatePage: React.FC = () => {
     });
   };
 
-  const handleRouteKindChange = (id: number, field: string, value: string) => {
+  const handleRouteKindChange = (id: string, field: 'kind' | 'group', value: string) => {
     setCurrentListener({
       ...currentListener,
       allowedRoutes: {
@@ -240,7 +280,7 @@ const GatewayCreatePage: React.FC = () => {
     });
   };
 
-  const handleRemoveRouteKind = (id: number) => {
+  const handleRemoveRouteKind = (id: string) => {
     setCurrentListener({
       ...currentListener,
       allowedRoutes: {
@@ -262,7 +302,7 @@ const GatewayCreatePage: React.FC = () => {
     });
   };
 
-  const handleTlsOptionChange = (id: number, field: string, value: string) => {
+  const handleTlsOptionChange = (id: string, field: 'key' | 'value', value: string) => {
     setCurrentListener({
       ...currentListener,
       tlsOptions: currentListener.tlsOptions.map((option) =>
@@ -271,7 +311,7 @@ const GatewayCreatePage: React.FC = () => {
     });
   };
 
-  const handleRemoveTlsOption = (id: number) => {
+  const handleRemoveTlsOption = (id: string) => {
     setCurrentListener({
       ...currentListener,
       tlsOptions: currentListener.tlsOptions.filter((option) => option.id !== id),
@@ -280,7 +320,7 @@ const GatewayCreatePage: React.FC = () => {
 
   // Address handlers
   const handleAddAddress = () => {
-    const newAddress = {
+    const newAddress: AddressRow = {
       id: generateUniqueId('addr'),
       type: 'IPAddress',
       value: '',
@@ -288,19 +328,103 @@ const GatewayCreatePage: React.FC = () => {
     setAddresses([...addresses, newAddress]);
   };
 
-  const handleAddressChange = (id: number, field: string, value: string) => {
+  const handleAddressChange = (id: string, field: 'type' | 'value', value: string) => {
     setAddresses(
-      addresses.map((address) => (address.id === id ? { ...address, [field]: value } : address)),
+      addresses.map((address) =>
+        address.id === id
+          ? field === 'type'
+            ? { ...address, type: value as AddressRow['type'] }
+            : { ...address, value }
+          : address,
+      ),
     );
   };
 
-  const handleRemoveAddress = (id: number) => {
+  const handleRemoveAddress = (id: string) => {
     setAddresses(addresses.filter((address) => address.id !== id));
   };
 
   // When form completed, build gateway resource object from form data
-  const gatewayObject = React.useMemo(() => {
-    const gateway = {
+  const gatewayObject = React.useMemo<GatewayResource>(() => {
+    const baseSpec = {
+      gatewayClassName: gatewayClassName,
+      listeners: listeners.map((listener) => {
+        const formattedListener: {
+          name: string;
+          port: number;
+          protocol: ListenerUI['protocol'];
+          hostname?: string;
+          tls?: {
+            mode?: 'Terminate' | 'Passthrough';
+            certificateRefs?: { group?: string; kind?: string; name: string; namespace?: string }[];
+            options?: Record<string, string>;
+          };
+          allowedRoutes?: {
+            namespaces?: { from?: 'All' | 'Same' | 'Selector' };
+            kinds?: { group?: string; kind: string }[];
+          };
+        } = {
+          name: listener.name,
+          port: listener.port,
+          protocol: listener.protocol,
+        };
+
+        if (listener.hostname) {
+          formattedListener.hostname = listener.hostname;
+        }
+
+        if (listener.protocol === 'HTTPS' || listener.protocol === 'TLS') {
+          formattedListener.tls = {
+            mode: listener.tlsMode,
+          };
+
+          if (listener.certificateRefs && listener.certificateRefs.length > 0) {
+            formattedListener.tls.certificateRefs = listener.certificateRefs.map((ref) => ({
+              name: ref.name,
+              namespace: ref.namespace || undefined,
+              kind: ref.kind,
+            }));
+          }
+
+          if (listener.tlsOptions && listener.tlsOptions.length > 0) {
+            formattedListener.tls.options = listener.tlsOptions.reduce<Record<string, string>>(
+              (acc, option) => {
+                acc[option.key] = option.value;
+                return acc;
+              },
+              {},
+            );
+          }
+        }
+
+        if (listener.allowedRoutes) {
+          formattedListener.allowedRoutes = {
+            namespaces: {
+              from: listener.allowedRoutes.namespaces.from,
+            },
+          };
+
+          if (listener.allowedRoutes.kinds && listener.allowedRoutes.kinds.length > 0) {
+            formattedListener.allowedRoutes.kinds = listener.allowedRoutes.kinds.map((kind) => ({
+              kind: kind.kind,
+              group: kind.group,
+            }));
+          }
+        }
+
+        return formattedListener;
+      }),
+      ...(addresses.length > 0
+        ? {
+            addresses: addresses.map((address) => ({
+              type: address.type,
+              value: address.value,
+            })),
+          }
+        : {}),
+    } as const;
+
+    const gateway: GatewayResource = {
       apiVersion: 'gateway.networking.k8s.io/v1',
       kind: 'Gateway',
       metadata: originalMetadata
@@ -311,124 +435,80 @@ const GatewayCreatePage: React.FC = () => {
             name: gatewayName,
             namespace: selectedNamespace,
           },
-      spec: {
-        gatewayClassName: gatewayClassName,
-        listeners: listeners.map((listener) => {
-          const formattedListener: any = {
-            name: listener.name,
-            port: listener.port,
-            protocol: listener.protocol,
-          };
-
-          if (listener.hostname) {
-            formattedListener.hostname = listener.hostname;
-          }
-
-          if (listener.protocol === 'HTTPS' || listener.protocol === 'TLS') {
-            formattedListener.tls = {
-              mode: listener.tlsMode,
-            };
-
-            if (listener.certificateRefs && listener.certificateRefs.length > 0) {
-              formattedListener.tls.certificateRefs = listener.certificateRefs.map((ref) => ({
-                name: ref.name,
-                namespace: ref.namespace || undefined,
-                kind: ref.kind,
-              }));
-            }
-
-            if (listener.tlsOptions && listener.tlsOptions.length > 0) {
-              formattedListener.tls.options = listener.tlsOptions.reduce((acc, option) => {
-                acc[option.key] = option.value;
-                return acc;
-              }, {});
-            }
-          }
-
-          if (listener.allowedRoutes) {
-            formattedListener.allowedRoutes = {
-              namespaces: {
-                from: listener.allowedRoutes.namespaces.from,
-              },
-            };
-
-            if (listener.allowedRoutes.kinds && listener.allowedRoutes.kinds.length > 0) {
-              formattedListener.allowedRoutes.kinds = listener.allowedRoutes.kinds.map((kind) => ({
-                kind: kind.kind,
-                group: kind.group,
-              }));
-            }
-          }
-
-          return formattedListener;
-        }),
-      },
+      spec: baseSpec,
     };
-
-    if (addresses.length > 0) {
-      (gateway.spec as any).addresses = addresses.map((address) => ({
-        type: address.type,
-        value: address.value,
-      }));
-    }
 
     return gateway;
   }, [gatewayName, gatewayClassName, listeners, addresses, selectedNamespace, originalMetadata]);
 
-  const populateFormFromGateway = (gateway: any) => {
+  type ApiListener = NonNullable<GatewayResource['spec']>['listeners'][number];
+  type ApiAddress = NonNullable<GatewayResource['spec']>['addresses'] extends (infer U)[]
+    ? U
+    : never;
+
+  const populateFormFromGateway = (gateway: unknown) => {
     try {
-      if (gateway.metadata?.name) {
-        setGatewayName(gateway.metadata.name);
+      const g = gateway as Partial<GatewayResource>;
+      if (g.metadata?.name) {
+        setGatewayName(g.metadata.name);
       }
 
-      if (gateway.spec?.gatewayClassName) {
-        setGatewayClassName(gateway.spec.gatewayClassName);
+      if (g.spec?.gatewayClassName) {
+        setGatewayClassName(g.spec.gatewayClassName);
       }
 
-      if (gateway.spec?.listeners) {
-        const formattedListeners = gateway.spec.listeners.map((listener: any, index: number) => ({
-          name: listener.name || '',
-          port: listener.port || 80,
-          protocol: listener.protocol || 'HTTP',
-          hostname: listener.hostname || '',
-          tlsMode: listener.tls?.mode || 'Terminate',
-          tlsOptions: listener.tls?.options
-            ? Object.entries(listener.tls.options).map(([key, value], idx) => ({
-                id: generateUniqueId(`tls_${index}_${idx}`),
-                key,
-                value,
-              }))
-            : [],
-          certificateRefs: listener.tls?.certificateRefs
-            ? listener.tls.certificateRefs.map((ref: any, idx: number) => ({
-                id: generateUniqueId(`cert_${index}_${idx}`),
-                name: ref.name || '',
-                namespace: ref.namespace || '',
-                kind: ref.kind || 'Secret',
-              }))
-            : [],
-          allowedRoutes: {
-            namespaces: {
-              from: listener.allowedRoutes?.namespaces?.from || 'Same',
-            },
-            kinds: listener.allowedRoutes?.kinds
-              ? listener.allowedRoutes.kinds.map((kind: any, idx: number) => ({
-                  id: generateUniqueId(`route_${index}_${idx}`),
-                  kind: kind.kind || 'HTTPRoute',
-                  group: kind.group || 'gateway.networking.k8s.io',
+      if (g.spec?.listeners) {
+        const formattedListeners: ListenerUI[] = g.spec.listeners.map(
+          (listener: ApiListener, index: number) => ({
+            name: listener.name || '',
+            port: listener.port || 80,
+            protocol: (listener.protocol as ListenerUI['protocol']) || 'HTTP',
+            hostname: listener.hostname || '',
+            tlsMode: (listener.tls?.mode as ListenerUI['tlsMode']) || 'Terminate',
+            tlsOptions: listener.tls?.options
+              ? (Object.entries(listener.tls.options) as Array<[string, string]>).map(
+                  ([key, value], idx) => ({
+                    id: generateUniqueId(`tls_${index}_${idx}`),
+                    key,
+                    value,
+                  }),
+                )
+              : [],
+            certificateRefs: listener.tls?.certificateRefs
+              ? listener.tls.certificateRefs.map((ref, idx: number) => ({
+                  id: generateUniqueId(`cert_${index}_${idx}`),
+                  name: ref.name || '',
+                  namespace: ref.namespace || '',
+                  kind: (ref.kind as CertificateRefRow['kind']) || 'Secret',
                 }))
               : [],
-          },
-        }));
+            allowedRoutes: {
+              namespaces: {
+                from:
+                  (listener.allowedRoutes?.namespaces
+                    ?.from as AllowedRoutesUI['namespaces']['from']) || 'Same',
+              },
+              kinds: listener.allowedRoutes?.kinds
+                ? listener.allowedRoutes.kinds.map((kind, idx: number) => ({
+                    id: generateUniqueId(`route_${index}_${idx}`),
+                    kind: kind.kind || 'HTTPRoute',
+                    group: kind.group || 'gateway.networking.k8s.io',
+                  }))
+                : [],
+            },
+          }),
+        );
         setListeners(formattedListeners);
       }
 
-      if (gateway.spec?.addresses) {
-        const formattedAddresses = gateway.spec.addresses.map((address: any, index: number) => ({
-          id: generateUniqueId(`addr_${index}`),
-          type: address.type || 'IPAddress',
-          value: address.value || '',
-        }));
+      if (g.spec?.addresses) {
+        const formattedAddresses: AddressRow[] = g.spec.addresses.map(
+          (address: ApiAddress, index: number) => ({
+            id: generateUniqueId(`addr_${index}`),
+            type: (address.type as AddressRow['type']) || 'IPAddress',
+            value: address.value || '',
+          }),
+        );
         setAddresses(formattedAddresses);
       }
     } catch (error) {
@@ -473,9 +553,10 @@ const GatewayCreatePage: React.FC = () => {
       if (parsedGateway && typeof parsedGateway === 'object') {
         populateFormFromGateway(parsedGateway);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as Error;
       const errorMessage =
-        error.message ||
+        err?.message ||
         'Invalid YAML syntax. Please review the Gateway Resource YAML and try again.';
       setYamlError(errorMessage);
       console.warn('Invalid YAML syntax, not updating form:', error);
@@ -585,7 +666,10 @@ const GatewayCreatePage: React.FC = () => {
             <FormSelect
               value={currentListener.protocol}
               onChange={(_event, value) =>
-                setCurrentListener({ ...currentListener, protocol: value })
+                setCurrentListener({
+                  ...currentListener,
+                  protocol: value as ListenerUI['protocol'],
+                })
               }
               aria-label={t('Select Protocol')}
             >
@@ -612,7 +696,10 @@ const GatewayCreatePage: React.FC = () => {
               <FormSelect
                 value={currentListener.tlsMode}
                 onChange={(_event, value) =>
-                  setCurrentListener({ ...currentListener, tlsMode: value })
+                  setCurrentListener({
+                    ...currentListener,
+                    tlsMode: value as ListenerUI['tlsMode'],
+                  })
                 }
                 aria-label={t('Select TLS Mode')}
               >
@@ -830,7 +917,7 @@ const GatewayCreatePage: React.FC = () => {
                     ...currentListener.allowedRoutes,
                     namespaces: {
                       ...currentListener.allowedRoutes.namespaces,
-                      from: value,
+                      from: value as AllowedRoutesUI['namespaces']['from'],
                     },
                   },
                 })
@@ -1050,7 +1137,7 @@ const GatewayCreatePage: React.FC = () => {
           {createView === 'form' ? (
             <PageSection hasBodyWrapper={false}>
               <Form className="co-m-pane__form">
-                <FormGroup label={t('Gateway Name')} isRequired fieldId="gateway-name">
+                <FormGroup label={t('Gateway name')} isRequired fieldId="gateway-name">
                   <TextInput
                     type="text"
                     id="gateway-name"
@@ -1334,7 +1421,7 @@ const GatewayCreatePage: React.FC = () => {
 
       <Modal
         variant="large"
-        title={editingListenerIndex !== null ? t('Edit Listener') : t('Add Listener')}
+        title={editingListenerIndex !== null ? t('Edit listener') : t('Add listener')}
         isOpen={isModalOpen}
         onClose={handleModalClose}
       >

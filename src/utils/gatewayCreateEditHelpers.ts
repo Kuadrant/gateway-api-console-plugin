@@ -6,7 +6,12 @@ export const generateUniqueId = (prefix = 'item'): string => {
 };
 
 // Remove certificates and TLS options when TLS mode is Passthrough
-export const removeCertsAndTlsOptionsForPassthrough = (listener: any) => {
+export const removeCertsAndTlsOptionsForPassthrough = (listener: {
+  protocol: 'HTTP' | 'HTTPS' | 'TLS' | 'TCP' | 'UDP';
+  tlsMode: 'Terminate' | 'Passthrough';
+  tlsOptions?: Array<unknown>;
+  certificateRefs?: Array<unknown>;
+}) => {
   if (listener.protocol === 'HTTPS' || listener.protocol === 'TLS') {
     if (listener.tlsMode === 'Passthrough') {
       return {
