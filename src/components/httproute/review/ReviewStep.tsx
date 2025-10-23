@@ -12,6 +12,7 @@ import {
   ExpandableSection,
   List,
   ListItem,
+  useWizardContext,
 } from '@patternfly/react-core';
 import { validateCompleteRule } from './reviewValidation';
 import { getFilterSummary } from '../filters/filterUtils';
@@ -30,6 +31,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
   }, [currentRule]);
 
   const isRuleValid = validationResult.isValid;
+  const { goToStepById } = useWizardContext();
   const formatFilterSummary = (filter: any): React.ReactNode => {
     const summary = getFilterSummary(filter);
 
@@ -74,7 +76,7 @@ const ReviewStep: React.FC<ReviewStepProps> = ({ currentRule, t }) => {
           style={{ marginBottom: 16 }}
           actionLinks={
             <React.Fragment>
-              <AlertActionLink onClick={() => console.log('Restart configuration')}>
+              <AlertActionLink onClick={() => goToStepById?.('rule-step-0')}>
                 {t('Restart configuration')}
               </AlertActionLink>
               <AlertActionLink
